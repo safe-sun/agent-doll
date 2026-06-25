@@ -6,6 +6,13 @@ const todayTokens = document.querySelector("#todayTokens");
 const todayInput = document.querySelector("#todayInput");
 const todayOutput = document.querySelector("#todayOutput");
 let dragging = false;
+let activePointerId = null;
+const light = {
+  x: 0.44,
+  y: 0.18,
+  targetX: 0.44,
+  targetY: 0.18,
+};
 
 function percentText(value) {
   if (!Number.isFinite(value)) {
@@ -81,43 +88,86 @@ async function refreshUsage() {
 }
 
 window.codexPet.onRefreshRequest(refreshUsage);
+window.codexPet.onCollapsedChange((value) => {
+  document.body.classList.toggle("is-collapsed", Boolean(value));
+});
 window.addEventListener("contextmenu", (event) => {
   event.preventDefault();
   window.codexPet.showContextMenu();
 });
 window.addEventListener("pointermove", (event) => {
-  document.documentElement.style.setProperty("--light-x", `${event.clientX}px`);
-  document.documentElement.style.setProperty("--light-y", `${event.clientY}px`);
+  light.targetX = Math.max(0, Math.min(1, event.clientX / window.innerWidth));
+  light.targetY = Math.max(0, Math.min(1, event.clientY / window.innerHeight));
 });
-window.addEventListener("mousedown", (event) => {
-  if (event.button !== 0) {
-    return;
-  }
-
-  dragging = true;
-  if (document.body.setPointerCapture && event.pointerId !== undefined) {
-    document.body.setPointerCapture(event.pointerId);
-  }
-  window.codexPet.dragStart();
+window.addEventListener("pointerleave", () => {
+  light.targetX = 0.44;
+  light.targetY = 0.18;
 });
-window.addEventListener("mouseup", (event) => {
+function finishDrag(event) {
   if (!dragging) {
     return;
   }
 
   dragging = false;
-  if (document.body.releasePointerCapture && event.pointerId !== undefined) {
+  if (
+    event &&
+    activePointerId !== null &&
+    document.body.releasePointerCapture
+  ) {
     try {
-      document.body.releasePointerCapture(event.pointerId);
+      document.body.releasePointerCapture(activePointerId);
     } catch {
-      // The capture can already be gone if the window lost focus.
+      // 窗口失焦时 capture 可能已经被系统释放。
     }
   }
+  activePointerId = null;
   window.codexPet.dragEnd();
+}
+
+window.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) {
+    return;
+  }
+
+  dragging = true;
+  activePointerId = event.pointerId;
+  if (document.body.setPointerCapture) {
+    document.body.setPointerCapture(event.pointerId);
+  }
+  window.codexPet.dragStart();
 });
+window.addEventListener("pointerup", finishDrag);
+window.addEventListener("pointercancel", finishDrag);
+window.addEventListener("mouseup", finishDrag);
 window.addEventListener("blur", () => {
-  dragging = false;
-  window.codexPet.dragEnd();
+  finishDrag();
 });
+
+async function syncWindowState() {
+  const collapsed = await window.codexPet.isCollapsed();
+  document.body.classList.toggle("is-collapsed", Boolean(collapsed));
+}
+
+function animateLight() {
+  light.x += (light.targetX - light.x) * 0.16;
+  light.y += (light.targetY - light.y) * 0.16;
+
+  const xPercent = `${(light.x * 100).toFixed(2)}%`;
+  const yPercent = `${(light.y * 100).toFixed(2)}%`;
+  const glintX = `${((light.x - 0.5) * 10).toFixed(2)}px`;
+  const glintY = `${((light.y - 0.5) * 7).toFixed(2)}px`;
+  const angle =
+    (Math.atan2(light.y - 0.5, light.x - 0.5) * 180) / Math.PI + 120;
+
+  document.documentElement.style.setProperty("--pointer-x", xPercent);
+  document.documentElement.style.setProperty("--pointer-y", yPercent);
+  document.documentElement.style.setProperty("--glint-x", glintX);
+  document.documentElement.style.setProperty("--glint-y", glintY);
+  document.documentElement.style.setProperty("--light-angle", `${angle}deg`);
+  requestAnimationFrame(animateLight);
+}
+
+syncWindowState();
+animateLight();
 refreshUsage();
 setInterval(refreshUsage, 60_000);

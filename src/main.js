@@ -4,10 +4,12 @@ const { readCodexUsage } = require("./usage-reader");
 
 let mainWindow;
 let alwaysOnTop = true;
+let collapsed = false;
 let dragState = null;
 let dragInterval = null;
-const WINDOW_WIDTH = 216;
-const WINDOW_HEIGHT = 188;
+const EXPANDED_SIZE = { width: 320, height: 128 };
+const COLLAPSED_SIZE = { width: 94, height: 58 };
+const EDGE_THRESHOLD = 18;
 
 function createWindow() {
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
@@ -15,20 +17,20 @@ function createWindow() {
   const sideMargin = Math.max(24, Math.round(workArea.width * 0.08));
   const x = Math.max(
     workArea.x + 20,
-    Math.round(workArea.x + workArea.width - WINDOW_WIDTH - sideMargin),
+    Math.round(workArea.x + workArea.width - EXPANDED_SIZE.width - sideMargin),
   );
   const y = Math.max(
     workArea.y + 20,
-    Math.round(workArea.y + workArea.height - WINDOW_HEIGHT - 24),
+    Math.round(workArea.y + workArea.height - EXPANDED_SIZE.height - 24),
   );
 
   mainWindow = new BrowserWindow({
-    width: WINDOW_WIDTH,
-    height: WINDOW_HEIGHT,
-    minWidth: WINDOW_WIDTH,
-    minHeight: WINDOW_HEIGHT,
-    maxWidth: WINDOW_WIDTH,
-    maxHeight: WINDOW_HEIGHT,
+    width: EXPANDED_SIZE.width,
+    height: EXPANDED_SIZE.height,
+    minWidth: EXPANDED_SIZE.width,
+    minHeight: EXPANDED_SIZE.height,
+    maxWidth: EXPANDED_SIZE.width,
+    maxHeight: EXPANDED_SIZE.height,
     x,
     y,
     frame: false,
@@ -48,6 +50,9 @@ function createWindow() {
   mainWindow.setMenuBarVisibility(false);
   mainWindow.setAlwaysOnTop(alwaysOnTop, "screen-saver");
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
+  mainWindow.webContents.once("did-finish-load", () => {
+    mainWindow?.webContents.send("window:collapsed-changed", collapsed);
+  });
   mainWindow.webContents.on("context-menu", (event) => {
     event.preventDefault();
     createContextMenu().popup({ window: mainWindow });
@@ -87,15 +92,111 @@ function tickDrag() {
   const cursor = screen.getCursorScreenPoint();
   const deltaX = Math.round(cursor.x - dragState.startMouseX);
   const deltaY = Math.round(cursor.y - dragState.startMouseY);
+  const size = dragState.size;
   mainWindow.setBounds(
     {
       x: dragState.startBounds.x + deltaX,
       y: dragState.startBounds.y + deltaY,
-      width: WINDOW_WIDTH,
-      height: WINDOW_HEIGHT,
+      width: size.width,
+      height: size.height,
     },
     false,
   );
+}
+
+function getActiveSize() {
+  return collapsed ? COLLAPSED_SIZE : EXPANDED_SIZE;
+}
+
+function getDisplayForBounds(bounds) {
+  return screen.getDisplayMatching(bounds).workArea;
+}
+
+function clampBoundsToWorkArea(bounds, size, workArea) {
+  return {
+    x: Math.min(
+      Math.max(bounds.x, workArea.x),
+      workArea.x + workArea.width - size.width,
+    ),
+    y: Math.min(
+      Math.max(bounds.y, workArea.y),
+      workArea.y + workArea.height - size.height,
+    ),
+    width: size.width,
+    height: size.height,
+  };
+}
+
+function getNearestEdge(bounds) {
+  const workArea = getDisplayForBounds(bounds);
+  const distances = [
+    { edge: "left", value: Math.abs(bounds.x - workArea.x) },
+    {
+      edge: "right",
+      value: Math.abs(workArea.x + workArea.width - (bounds.x + bounds.width)),
+    },
+    { edge: "top", value: Math.abs(bounds.y - workArea.y) },
+    {
+      edge: "bottom",
+      value: Math.abs(workArea.y + workArea.height - (bounds.y + bounds.height)),
+    },
+  ].sort((a, b) => a.value - b.value);
+
+  return distances[0].value <= EDGE_THRESHOLD ? distances[0].edge : null;
+}
+
+function getBoundsForMode(nextCollapsed, edge = null) {
+  const current = mainWindow.getBounds();
+  const fromSize = getActiveSize();
+  const nextSize = nextCollapsed ? COLLAPSED_SIZE : EXPANDED_SIZE;
+  const workArea = getDisplayForBounds(current);
+  const centerX = current.x + fromSize.width / 2;
+  const centerY = current.y + fromSize.height / 2;
+  const nextBounds = {
+    x: Math.round(centerX - nextSize.width / 2),
+    y: Math.round(centerY - nextSize.height / 2),
+    width: nextSize.width,
+    height: nextSize.height,
+  };
+
+  if (edge === "left") {
+    nextBounds.x = workArea.x;
+  } else if (edge === "right") {
+    nextBounds.x = workArea.x + workArea.width - nextSize.width;
+  } else if (edge === "top") {
+    nextBounds.y = workArea.y;
+  } else if (edge === "bottom") {
+    nextBounds.y = workArea.y + workArea.height - nextSize.height;
+  }
+
+  return clampBoundsToWorkArea(nextBounds, nextSize, workArea);
+}
+
+function setCollapsed(nextCollapsed, edge = null) {
+  if (!mainWindow) {
+    collapsed = nextCollapsed;
+    return collapsed;
+  }
+
+  const size = nextCollapsed ? COLLAPSED_SIZE : EXPANDED_SIZE;
+  const bounds = getBoundsForMode(nextCollapsed, edge);
+  collapsed = nextCollapsed;
+
+  mainWindow.setMinimumSize(size.width, size.height);
+  mainWindow.setMaximumSize(size.width, size.height);
+  mainWindow.setBounds(bounds, false);
+  mainWindow.webContents.send("window:collapsed-changed", collapsed);
+  return collapsed;
+}
+
+function updateCollapseAfterDrag() {
+  if (!mainWindow) {
+    return;
+  }
+
+  const bounds = mainWindow.getBounds();
+  const edge = getNearestEdge(bounds);
+  setCollapsed(Boolean(edge), edge);
 }
 
 function createContextMenu() {
@@ -109,6 +210,10 @@ function createContextMenu() {
       type: "checkbox",
       checked: alwaysOnTop,
       click: () => setAlwaysOnTop(!alwaysOnTop),
+    },
+    {
+      label: collapsed ? "展开窗口" : "收起小窗",
+      click: () => setCollapsed(!collapsed),
     },
     { type: "separator" },
     {
@@ -194,6 +299,7 @@ ipcMain.handle("window:drag-start", () => {
     startMouseX: cursor.x,
     startMouseY: cursor.y,
     startBounds: mainWindow.getBounds(),
+    size: getActiveSize(),
     startedAt: Date.now(),
   };
 
@@ -204,4 +310,7 @@ ipcMain.handle("window:drag-start", () => {
 
 ipcMain.handle("window:drag-end", () => {
   stopDrag();
+  updateCollapseAfterDrag();
 });
+
+ipcMain.handle("window:is-collapsed", () => collapsed);
