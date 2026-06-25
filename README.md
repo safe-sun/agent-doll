@@ -17,7 +17,8 @@ npm start
 
 应用只读取本机 Codex 数据，不会上传认证信息。
 
-- 5 小时和周用量：读取 `~/.codex/sessions` 下最近的 `rate_limits` 记录。
+- 5 小时和周用量：优先调用 Codex App 的 `account/rateLimits/read` 接口，读取总体 `codex` 用量桶。
+- 备用用量：Codex App 接口不可用时，才读取 `~/.codex/sessions` 下最近的 `rate_limits` 记录。
 - 今日 token：累加当天 `token_count` 事件里的 `last_token_usage`。
 - 如果 Codex 最近没有产生 token 统计，界面会显示“未检测到用量记录”。
 

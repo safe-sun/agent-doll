@@ -8,6 +8,7 @@ const todayTokens = document.querySelector("#todayTokens");
 const todayInput = document.querySelector("#todayInput");
 const todayOutput = document.querySelector("#todayOutput");
 const todayReasoning = document.querySelector("#todayReasoning");
+let dragging = false;
 
 function percentText(value) {
   if (!Number.isFinite(value)) {
@@ -87,5 +88,42 @@ async function refreshUsage() {
 }
 
 window.codexPet.onRefreshRequest(refreshUsage);
+window.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  window.codexPet.showContextMenu();
+});
+window.addEventListener("mousedown", (event) => {
+  if (event.button !== 0) {
+    return;
+  }
+
+  dragging = true;
+  window.codexPet.dragStart({
+    screenX: event.screenX,
+    screenY: event.screenY,
+  });
+});
+window.addEventListener("mousemove", (event) => {
+  if (!dragging) {
+    return;
+  }
+
+  window.codexPet.dragMove({
+    screenX: event.screenX,
+    screenY: event.screenY,
+  });
+});
+window.addEventListener("mouseup", () => {
+  if (!dragging) {
+    return;
+  }
+
+  dragging = false;
+  window.codexPet.dragEnd();
+});
+window.addEventListener("blur", () => {
+  dragging = false;
+  window.codexPet.dragEnd();
+});
 refreshUsage();
 setInterval(refreshUsage, 60_000);

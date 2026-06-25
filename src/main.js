@@ -4,10 +4,11 @@ const { readCodexUsage } = require("./usage-reader");
 
 let mainWindow;
 let alwaysOnTop = true;
+let dragState = null;
 
 function createWindow() {
-  const windowWidth = 360;
-  const windowHeight = 178;
+  const windowWidth = 236;
+  const windowHeight = 236;
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const workArea = display.workArea;
   const sideMargin = Math.max(24, Math.round(workArea.width * 0.08));
@@ -23,8 +24,10 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    minWidth: 320,
-    minHeight: 160,
+    minWidth: windowWidth,
+    minHeight: windowHeight,
+    maxWidth: windowWidth,
+    maxHeight: windowHeight,
     x,
     y,
     frame: false,
@@ -44,7 +47,8 @@ function createWindow() {
   mainWindow.setMenuBarVisibility(false);
   mainWindow.setAlwaysOnTop(alwaysOnTop, "screen-saver");
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
-  mainWindow.webContents.on("context-menu", () => {
+  mainWindow.webContents.on("context-menu", (event) => {
+    event.preventDefault();
     createContextMenu().popup({ window: mainWindow });
   });
 
@@ -136,4 +140,40 @@ ipcMain.handle("window:open-codex-home", async () => {
 
 ipcMain.handle("window:quit", () => {
   app.quit();
+});
+
+ipcMain.handle("window:show-context-menu", () => {
+  if (mainWindow) {
+    createContextMenu().popup({ window: mainWindow });
+  }
+});
+
+ipcMain.handle("window:drag-start", (_event, point) => {
+  if (!mainWindow || !point) {
+    return;
+  }
+
+  dragState = {
+    startMouseX: point.screenX,
+    startMouseY: point.screenY,
+    startBounds: mainWindow.getBounds(),
+  };
+});
+
+ipcMain.handle("window:drag-move", (_event, point) => {
+  if (!mainWindow || !dragState || !point) {
+    return;
+  }
+
+  const deltaX = Math.round(point.screenX - dragState.startMouseX);
+  const deltaY = Math.round(point.screenY - dragState.startMouseY);
+  mainWindow.setPosition(
+    dragState.startBounds.x + deltaX,
+    dragState.startBounds.y + deltaY,
+    false,
+  );
+});
+
+ipcMain.handle("window:drag-end", () => {
+  dragState = null;
 });
