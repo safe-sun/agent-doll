@@ -1,13 +1,10 @@
 const primaryRemaining = document.querySelector("#primaryRemaining");
 const secondaryRemaining = document.querySelector("#secondaryRemaining");
-const primaryUsed = document.querySelector("#primaryUsed");
-const secondaryUsed = document.querySelector("#secondaryUsed");
 const primaryBar = document.querySelector("#primaryBar");
 const secondaryBar = document.querySelector("#secondaryBar");
 const todayTokens = document.querySelector("#todayTokens");
 const todayInput = document.querySelector("#todayInput");
 const todayOutput = document.querySelector("#todayOutput");
-const todayReasoning = document.querySelector("#todayReasoning");
 let dragging = false;
 
 function percentText(value) {
@@ -36,18 +33,15 @@ function compactNumber(value) {
   return new Intl.NumberFormat("zh-CN").format(number);
 }
 
-function updateQuota(window, remainingEl, usedEl, barEl) {
+function updateQuota(window, remainingEl, barEl) {
   if (!window) {
     remainingEl.textContent = "--%";
-    usedEl.textContent = "已用 --%";
     barEl.style.width = "0%";
     return;
   }
 
   const remaining = Number(window.remainingPercent);
-  const used = Number(window.usedPercent);
   remainingEl.textContent = percentText(remaining);
-  usedEl.textContent = `已用 ${percentText(used)}`;
   barEl.style.width = `${Math.max(0, Math.min(100, remaining || 0))}%`;
 }
 
@@ -56,21 +50,20 @@ function updateTodayTokens(usage) {
   todayTokens.textContent = compactNumber(today.total_tokens);
   todayInput.textContent = compactNumber(today.input_tokens);
   todayOutput.textContent = compactNumber(today.output_tokens);
-  todayReasoning.textContent = compactNumber(today.reasoning_output_tokens);
 }
 
 function renderUsage(usage) {
   document.body.classList.toggle("error", !usage.found);
 
   if (!usage.found) {
-    updateQuota(null, primaryRemaining, primaryUsed, primaryBar);
-    updateQuota(null, secondaryRemaining, secondaryUsed, secondaryBar);
+    updateQuota(null, primaryRemaining, primaryBar);
+    updateQuota(null, secondaryRemaining, secondaryBar);
     updateTodayTokens(usage);
     return;
   }
 
-  updateQuota(usage.primary, primaryRemaining, primaryUsed, primaryBar);
-  updateQuota(usage.secondary, secondaryRemaining, secondaryUsed, secondaryBar);
+  updateQuota(usage.primary, primaryRemaining, primaryBar);
+  updateQuota(usage.secondary, secondaryRemaining, secondaryBar);
   updateTodayTokens(usage);
 }
 
@@ -91,6 +84,10 @@ window.codexPet.onRefreshRequest(refreshUsage);
 window.addEventListener("contextmenu", (event) => {
   event.preventDefault();
   window.codexPet.showContextMenu();
+});
+window.addEventListener("pointermove", (event) => {
+  document.documentElement.style.setProperty("--light-x", `${event.clientX}px`);
+  document.documentElement.style.setProperty("--light-y", `${event.clientY}px`);
 });
 window.addEventListener("mousedown", (event) => {
   if (event.button !== 0) {

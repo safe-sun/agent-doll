@@ -6,8 +6,8 @@ let mainWindow;
 let alwaysOnTop = true;
 let dragState = null;
 let dragInterval = null;
-const WINDOW_WIDTH = 236;
-const WINDOW_HEIGHT = 236;
+const WINDOW_WIDTH = 216;
+const WINDOW_HEIGHT = 188;
 
 function createWindow() {
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());

@@ -1,13 +1,15 @@
 :root {
   color-scheme: light;
-  --ink: rgba(16, 22, 28, 0.9);
-  --muted: rgba(16, 22, 28, 0.54);
-  --hairline: rgba(255, 255, 255, 0.72);
-  --glass: rgba(246, 250, 255, 0.38);
-  --shadow: 0 20px 48px rgba(16, 24, 32, 0.28);
-  --green: #24a77a;
-  --blue: #3286ff;
-  --amber: #d99222;
+  --ink: rgba(16, 21, 26, 0.92);
+  --muted: rgba(16, 21, 26, 0.52);
+  --hairline: rgba(255, 255, 255, 0.82);
+  --glass: rgba(250, 252, 255, 0.27);
+  --shadow: 0 18px 42px rgba(9, 16, 24, 0.25);
+  --green: #19b886;
+  --blue: #2f80ff;
+  --amber: #e0a02d;
+  --light-x: 32%;
+  --light-y: 8%;
 }
 
 * {
@@ -32,7 +34,7 @@ body {
 body {
   display: grid;
   place-items: center;
-  padding: 9px;
+  padding: 8px;
   user-select: none;
 }
 
@@ -41,17 +43,23 @@ body {
   height: 100%;
   position: relative;
   overflow: hidden;
-  padding: 13px;
-  border: 1px solid rgba(255, 255, 255, 0.64);
-  border-radius: 34px;
+  display: grid;
+  grid-template-rows: 76px 1fr;
+  gap: 8px;
+  padding: 10px 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 30px;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.54), rgba(231, 240, 248, 0.2)),
+    radial-gradient(circle at var(--light-x) var(--light-y), rgba(255, 255, 255, 0.94), transparent 22%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.58), rgba(219, 233, 248, 0.16) 46%, rgba(255, 255, 255, 0.23)),
     var(--glass);
   box-shadow:
-    inset 0 1px 0 var(--hairline),
-    inset 0 -18px 36px rgba(255, 255, 255, 0.16),
+    inset 0 1px 1px var(--hairline),
+    inset 0 -22px 36px rgba(255, 255, 255, 0.2),
+    inset 0 0 22px rgba(255, 255, 255, 0.18),
     var(--shadow);
-  backdrop-filter: blur(30px) saturate(1.5);
+  backdrop-filter: blur(36px) saturate(1.8) contrast(1.08);
+  animation: cardIn 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .glass-card::before {
@@ -59,9 +67,27 @@ body {
   position: absolute;
   inset: 1px;
   pointer-events: none;
-  border-radius: 33px;
-  background: linear-gradient(120deg, rgba(255, 255, 255, 0.7), transparent 42%);
-  opacity: 0.58;
+  border-radius: 29px;
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, 0.82), transparent 29%),
+    linear-gradient(290deg, rgba(255, 255, 255, 0.38), transparent 36%);
+  mix-blend-mode: screen;
+  opacity: 0.72;
+}
+
+.glass-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 82% 92%, rgba(255, 255, 255, 0.58), transparent 18%),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  filter: blur(0.2px);
+  opacity: 0.36;
+  transform: translateX(-18%);
+  animation: liquidGlint 5.2s ease-in-out infinite;
 }
 
 .quota-row,
@@ -73,18 +99,21 @@ body {
 .quota-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 9px;
-  min-height: 82px;
+  gap: 8px;
+  min-height: 0;
 }
 
 .quota-block,
 .token-panel {
-  border: 1px solid rgba(255, 255, 255, 0.56);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 21px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.16)),
+    rgba(255, 255, 255, 0.2);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.62),
-    0 10px 22px rgba(28, 36, 44, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.68),
+    inset 0 -10px 16px rgba(255, 255, 255, 0.12),
+    0 10px 22px rgba(28, 36, 44, 0.07);
 }
 
 .quota-block {
@@ -92,55 +121,32 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 11px 10px 10px;
+  padding: 10px 10px 9px;
 }
 
-.quota-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+.quota-block span {
   color: var(--muted);
   font-size: 11px;
+  font-weight: 700;
   line-height: 1.2;
-}
-
-.quota-topline span,
-.quota-topline em {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.quota-topline em {
-  font-style: normal;
-  font-size: 10px;
 }
 
 .quota-block strong {
   display: block;
-  margin-top: 8px;
-  font-size: 25px;
+  margin-top: 5px;
+  font-size: 24px;
   line-height: 1;
   letter-spacing: 0;
 }
 
-.quota-block strong::after {
-  content: "剩";
-  margin-left: 2px;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 600;
-}
-
 .meter {
   width: 100%;
-  height: 5px;
-  margin-top: 10px;
+  height: 4px;
+  margin-top: 7px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(20, 26, 31, 0.1);
+  background: rgba(20, 26, 31, 0.11);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.08);
 }
 
 .meter span {
@@ -148,51 +154,57 @@ body {
   width: 0%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--green), var(--blue));
-  transition: width 180ms ease;
+  background: linear-gradient(90deg, var(--green), #7ee7c2, var(--blue));
+  box-shadow: 0 0 10px rgba(47, 128, 255, 0.34);
+  transition: width 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .meter.weekly span {
-  background: linear-gradient(90deg, var(--blue), var(--amber));
+  background: linear-gradient(90deg, var(--blue), #8fc7ff, var(--amber));
 }
 
 .token-panel {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1.08fr 1fr;
   gap: 8px;
   align-items: center;
-  min-height: 108px;
-  margin-top: 10px;
-  padding: 11px 10px 10px;
+  min-height: 0;
+  padding: 9px;
 }
 
 .token-panel span,
 .token-panel dt {
   color: var(--muted);
   font-size: 11px;
+  font-weight: 700;
   line-height: 1.2;
+}
+
+.token-total {
+  min-width: 0;
 }
 
 .token-panel strong {
   display: block;
-  margin-top: 4px;
-  font-size: 23px;
+  margin-top: 3px;
+  font-size: 21px;
   line-height: 1;
   letter-spacing: 0;
 }
 
 dl {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+  grid-template-columns: 1fr;
+  gap: 5px;
   margin: 0;
 }
 
 dl div {
   min-width: 0;
-  padding: 7px 6px 6px;
-  border-radius: 15px;
+  padding: 5px 7px;
+  border-radius: 13px;
   background: rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.32);
 }
 
 dt,
@@ -205,7 +217,7 @@ dd {
 }
 
 dd {
-  margin-top: 2px;
+  margin-top: 1px;
   font-size: 12px;
   font-weight: 700;
 }
@@ -214,4 +226,38 @@ dd {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(255, 238, 236, 0.38)),
     var(--glass);
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes liquidGlint {
+  0%,
+  100% {
+    opacity: 0.22;
+    transform: translateX(-22%);
+  }
+
+  45% {
+    opacity: 0.48;
+    transform: translateX(24%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-card,
+  .glass-card::after,
+  .meter span {
+    animation: none;
+    transition: none;
+  }
 }
