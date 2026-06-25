@@ -98,27 +98,24 @@ window.addEventListener("mousedown", (event) => {
   }
 
   dragging = true;
-  window.codexPet.dragStart({
-    screenX: event.screenX,
-    screenY: event.screenY,
-  });
-});
-window.addEventListener("mousemove", (event) => {
-  if (!dragging) {
-    return;
+  if (document.body.setPointerCapture && event.pointerId !== undefined) {
+    document.body.setPointerCapture(event.pointerId);
   }
-
-  window.codexPet.dragMove({
-    screenX: event.screenX,
-    screenY: event.screenY,
-  });
+  window.codexPet.dragStart();
 });
-window.addEventListener("mouseup", () => {
+window.addEventListener("mouseup", (event) => {
   if (!dragging) {
     return;
   }
 
   dragging = false;
+  if (document.body.releasePointerCapture && event.pointerId !== undefined) {
+    try {
+      document.body.releasePointerCapture(event.pointerId);
+    } catch {
+      // The capture can already be gone if the window lost focus.
+    }
+  }
   window.codexPet.dragEnd();
 });
 window.addEventListener("blur", () => {

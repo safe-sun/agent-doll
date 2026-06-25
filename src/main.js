@@ -5,29 +5,30 @@ const { readCodexUsage } = require("./usage-reader");
 let mainWindow;
 let alwaysOnTop = true;
 let dragState = null;
+let dragInterval = null;
+const WINDOW_WIDTH = 236;
+const WINDOW_HEIGHT = 236;
 
 function createWindow() {
-  const windowWidth = 236;
-  const windowHeight = 236;
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const workArea = display.workArea;
   const sideMargin = Math.max(24, Math.round(workArea.width * 0.08));
   const x = Math.max(
     workArea.x + 20,
-    Math.round(workArea.x + workArea.width - windowWidth - sideMargin),
+    Math.round(workArea.x + workArea.width - WINDOW_WIDTH - sideMargin),
   );
   const y = Math.max(
     workArea.y + 20,
-    Math.round(workArea.y + workArea.height - windowHeight - 24),
+    Math.round(workArea.y + workArea.height - WINDOW_HEIGHT - 24),
   );
 
   mainWindow = new BrowserWindow({
-    width: windowWidth,
-    height: windowHeight,
-    minWidth: windowWidth,
-    minHeight: windowHeight,
-    maxWidth: windowWidth,
-    maxHeight: windowHeight,
+    width: WINDOW_WIDTH,
+    height: WINDOW_HEIGHT,
+    minWidth: WINDOW_WIDTH,
+    minHeight: WINDOW_HEIGHT,
+    maxWidth: WINDOW_WIDTH,
+    maxHeight: WINDOW_HEIGHT,
     x,
     y,
     frame: false,
@@ -58,8 +59,43 @@ function createWindow() {
   });
 
   mainWindow.on("closed", () => {
+    stopDrag();
     mainWindow = null;
   });
+}
+
+function stopDrag() {
+  dragState = null;
+
+  if (dragInterval) {
+    clearInterval(dragInterval);
+    dragInterval = null;
+  }
+}
+
+function tickDrag() {
+  if (!mainWindow || !dragState) {
+    stopDrag();
+    return;
+  }
+
+  if (Date.now() - dragState.startedAt > 15000) {
+    stopDrag();
+    return;
+  }
+
+  const cursor = screen.getCursorScreenPoint();
+  const deltaX = Math.round(cursor.x - dragState.startMouseX);
+  const deltaY = Math.round(cursor.y - dragState.startMouseY);
+  mainWindow.setBounds(
+    {
+      x: dragState.startBounds.x + deltaX,
+      y: dragState.startBounds.y + deltaY,
+      width: WINDOW_WIDTH,
+      height: WINDOW_HEIGHT,
+    },
+    false,
+  );
 }
 
 function createContextMenu() {
@@ -148,32 +184,24 @@ ipcMain.handle("window:show-context-menu", () => {
   }
 });
 
-ipcMain.handle("window:drag-start", (_event, point) => {
-  if (!mainWindow || !point) {
+ipcMain.handle("window:drag-start", () => {
+  if (!mainWindow) {
     return;
   }
 
+  const cursor = screen.getCursorScreenPoint();
   dragState = {
-    startMouseX: point.screenX,
-    startMouseY: point.screenY,
+    startMouseX: cursor.x,
+    startMouseY: cursor.y,
     startBounds: mainWindow.getBounds(),
+    startedAt: Date.now(),
   };
-});
 
-ipcMain.handle("window:drag-move", (_event, point) => {
-  if (!mainWindow || !dragState || !point) {
-    return;
+  if (!dragInterval) {
+    dragInterval = setInterval(tickDrag, 16);
   }
-
-  const deltaX = Math.round(point.screenX - dragState.startMouseX);
-  const deltaY = Math.round(point.screenY - dragState.startMouseY);
-  mainWindow.setPosition(
-    dragState.startBounds.x + deltaX,
-    dragState.startBounds.y + deltaY,
-    false,
-  );
 });
 
 ipcMain.handle("window:drag-end", () => {
-  dragState = null;
+  stopDrag();
 });
