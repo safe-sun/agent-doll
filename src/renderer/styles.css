@@ -1,0 +1,275 @@
+:root {
+  color-scheme: light;
+  --ink: #19211f;
+  --muted: #66736f;
+  --panel: rgba(255, 255, 255, 0.92);
+  --panel-strong: rgba(255, 255, 255, 0.98);
+  --line: rgba(18, 49, 43, 0.12);
+  --green: #2f9b70;
+  --teal: #327d89;
+  --gold: #d69b31;
+  --red: #d65b50;
+  --shadow: 0 22px 54px rgba(24, 42, 38, 0.22);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family:
+    "Microsoft YaHei UI",
+    "Microsoft YaHei",
+    "Segoe UI",
+    sans-serif;
+  color: var(--ink);
+}
+
+button {
+  font: inherit;
+}
+
+.shell {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  padding: 18px 18px 12px;
+  -webkit-app-region: drag;
+}
+
+.panel {
+  width: 310px;
+  min-height: 240px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(242, 249, 247, 0.88)),
+    var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+}
+
+.titlebar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--muted);
+}
+
+h1 {
+  max-width: 170px;
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.window-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  -webkit-app-region: no-drag;
+}
+
+.icon-button {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(24, 42, 38, 0.1);
+  border-radius: 8px;
+  background: var(--panel-strong);
+  color: var(--ink);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.icon-button:hover {
+  background: #eef7f4;
+}
+
+.icon-button.close:hover {
+  color: #fff;
+  background: var(--red);
+}
+
+.usage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.usage-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.usage-card.primary {
+  background: rgba(240, 250, 245, 0.88);
+}
+
+.label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.usage-card strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.meter {
+  width: 100%;
+  height: 7px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(25, 33, 31, 0.09);
+}
+
+.meter span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--green), var(--teal));
+  transition: width 220ms ease;
+}
+
+.meter.secondary span {
+  background: linear-gradient(90deg, var(--teal), var(--gold));
+}
+
+.usage-card p {
+  min-height: 30px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: 1.1fr 0.7fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.details div {
+  min-width: 0;
+  padding: 8px 9px;
+  border-radius: 9px;
+  background: rgba(25, 33, 31, 0.05);
+}
+
+.details span,
+.details strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.details span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.details strong {
+  margin-top: 3px;
+  font-size: 13px;
+}
+
+.pet-zone {
+  position: absolute;
+  right: 18px;
+  bottom: 8px;
+  width: 138px;
+  height: 162px;
+  display: grid;
+  justify-items: center;
+  align-content: end;
+  pointer-events: none;
+}
+
+.bubble {
+  max-width: 132px;
+  margin-bottom: 4px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 12px 30px rgba(24, 42, 38, 0.14);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.pet-frame {
+  width: 120px;
+  height: 112px;
+  display: grid;
+  place-items: end center;
+  overflow: hidden;
+  filter: drop-shadow(0 12px 18px rgba(24, 42, 38, 0.28));
+}
+
+#petImage {
+  width: 118px;
+  height: 110px;
+  object-fit: cover;
+  object-position: left top;
+  transform: translateY(4px);
+}
+
+.fallback-pet {
+  width: 94px;
+  height: 94px;
+  position: relative;
+  border-radius: 48% 48% 42% 42%;
+  background:
+    radial-gradient(circle at 35% 42%, #19211f 0 4px, transparent 5px),
+    radial-gradient(circle at 65% 42%, #19211f 0 4px, transparent 5px),
+    linear-gradient(145deg, #dff4ec, #7fcbb0);
+}
+
+.fallback-pet span {
+  position: absolute;
+  left: 31px;
+  bottom: 24px;
+  width: 32px;
+  height: 12px;
+  border-bottom: 3px solid rgba(25, 33, 31, 0.78);
+  border-radius: 0 0 999px 999px;
+}
+
+.error .panel {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 245, 243, 0.9)),
+    var(--panel);
+}

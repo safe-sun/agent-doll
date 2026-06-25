@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Codex 桌宠</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <header class="titlebar">
+          <div>
+            <p class="eyebrow">Codex 桌宠</p>
+            <h1 id="statusTitle">正在读取用量</h1>
+          </div>
+          <div class="window-actions">
+            <button id="refreshButton" class="icon-button" type="button" title="刷新">↻</button>
+            <button id="topButton" class="icon-button" type="button" title="取消置顶">▣</button>
+            <button id="closeButton" class="icon-button close" type="button" title="关闭">×</button>
+          </div>
+        </header>
+
+        <div class="usage-grid">
+          <article class="usage-card primary">
+            <span class="label">短窗口剩余</span>
+            <strong id="primaryRemaining">--%</strong>
+            <div class="meter" aria-hidden="true">
+              <span id="primaryBar"></span>
+            </div>
+            <p id="primaryReset">等待数据</p>
+          </article>
+
+          <article class="usage-card">
+            <span class="label">长窗口剩余</span>
+            <strong id="secondaryRemaining">--%</strong>
+            <div class="meter secondary" aria-hidden="true">
+              <span id="secondaryBar"></span>
+            </div>
+            <p id="secondaryReset">等待数据</p>
+          </article>
+        </div>
+
+        <footer class="details">
+          <div>
+            <span>最近 token</span>
+            <strong id="lastTokens">--</strong>
+          </div>
+          <div>
+            <span>套餐</span>
+            <strong id="planType">--</strong>
+          </div>
+          <div>
+            <span>更新时间</span>
+            <strong id="updatedAt">--</strong>
+          </div>
+        </footer>
+      </section>
+
+      <aside class="pet-zone">
+        <div class="bubble" id="petBubble">读取中</div>
+        <div class="pet-frame">
+          <img id="petImage" alt="Codex 桌宠" />
+          <div id="fallbackPet" class="fallback-pet" hidden>
+            <span></span>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
