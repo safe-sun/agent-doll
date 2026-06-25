@@ -6,11 +6,11 @@ let mainWindow;
 let alwaysOnTop = true;
 
 function createWindow() {
-  const windowWidth = 500;
-  const windowHeight = 320;
+  const windowWidth = 360;
+  const windowHeight = 178;
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const workArea = display.workArea;
-  const sideMargin = Math.max(24, Math.round(workArea.width * 0.16));
+  const sideMargin = Math.max(24, Math.round(workArea.width * 0.08));
   const x = Math.max(
     workArea.x + 20,
     Math.round(workArea.x + workArea.width - windowWidth - sideMargin),
@@ -23,15 +23,15 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    minWidth: 340,
-    minHeight: 260,
+    minWidth: 320,
+    minHeight: 160,
     x,
     y,
     frame: false,
     transparent: true,
     resizable: false,
     show: false,
-    skipTaskbar: false,
+    skipTaskbar: true,
     alwaysOnTop,
     backgroundColor: "#00000000",
     webPreferences: {
@@ -44,6 +44,9 @@ function createWindow() {
   mainWindow.setMenuBarVisibility(false);
   mainWindow.setAlwaysOnTop(alwaysOnTop, "screen-saver");
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
+  mainWindow.webContents.on("context-menu", () => {
+    createContextMenu().popup({ window: mainWindow });
+  });
 
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
@@ -53,6 +56,52 @@ function createWindow() {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+}
+
+function createContextMenu() {
+  return Menu.buildFromTemplate([
+    {
+      label: "刷新用量",
+      click: () => mainWindow?.webContents.send("codex-usage:refresh"),
+    },
+    {
+      label: alwaysOnTop ? "取消置顶" : "保持置顶",
+      type: "checkbox",
+      checked: alwaysOnTop,
+      click: () => setAlwaysOnTop(!alwaysOnTop),
+    },
+    { type: "separator" },
+    {
+      label: "打开 Codex 目录",
+      click: async () => {
+        const usage = await readCodexUsage();
+        await shell.openPath(usage.codexHome);
+      },
+    },
+    {
+      label: "重新载入窗口",
+      click: () => mainWindow?.reload(),
+    },
+    { type: "separator" },
+    {
+      label: "退出",
+      click: () => app.quit(),
+    },
+  ]);
+}
+
+function setAlwaysOnTop(value) {
+  alwaysOnTop = value;
+  if (!mainWindow) {
+    return alwaysOnTop;
+  }
+
+  mainWindow.setAlwaysOnTop(alwaysOnTop, "screen-saver");
+  if (alwaysOnTop) {
+    mainWindow.moveTop();
+  }
+
+  return alwaysOnTop;
 }
 
 app.whenReady().then(() => {
@@ -75,15 +124,7 @@ app.on("window-all-closed", () => {
 ipcMain.handle("codex-usage:read", async () => readCodexUsage());
 
 ipcMain.handle("window:toggle-top", () => {
-  alwaysOnTop = !alwaysOnTop;
-  if (mainWindow) {
-    mainWindow.setAlwaysOnTop(alwaysOnTop, "screen-saver");
-    if (alwaysOnTop) {
-      mainWindow.moveTop();
-    }
-  }
-
-  return alwaysOnTop;
+  return setAlwaysOnTop(!alwaysOnTop);
 });
 
 ipcMain.handle("window:is-top", () => alwaysOnTop);

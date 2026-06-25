@@ -1,9 +1,8 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
-const { pathToFileURL } = require("node:url");
 
-const MAX_SESSION_FILES = 80;
+const MAX_SESSION_FILES = 120;
 const READ_TAIL_BYTES = 1024 * 1024;
 
 function codexHome() {
@@ -62,16 +61,7 @@ function normalizeUsage(record) {
   };
 }
 
-async function pathExists(filePath) {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function collectSessionFiles(root) {
+async function collectSessionFiles(root, limit = MAX_SESSION_FILES) {
   const files = [];
 
   async function walk(dir) {
@@ -102,7 +92,7 @@ async function collectSessionFiles(root) {
   }
 
   await walk(root);
-  return files.sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, MAX_SESSION_FILES);
+  return files.sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, limit);
 }
 
 async function readFileTail(file) {
@@ -162,32 +152,95 @@ async function readLatestRateLimit() {
   };
 }
 
-async function readPetImage() {
-  const petsRoot = path.join(codexHome(), "pets");
-  const preferred = [
-    path.join(petsRoot, "capoo", "spritesheet.webp"),
-    path.join(petsRoot, "frieren-5", "spritesheet.webp"),
-    path.join(petsRoot, "aoi", "spritesheet.webp"),
-  ];
+function emptyTokenUsage() {
+  return {
+    input_tokens: 0,
+    cached_input_tokens: 0,
+    output_tokens: 0,
+    reasoning_output_tokens: 0,
+    total_tokens: 0,
+    events: 0,
+  };
+}
 
-  for (const imagePath of preferred) {
-    if (await pathExists(imagePath)) {
-      return {
-        path: imagePath,
-        url: pathToFileURL(imagePath).toString(),
-      };
+function addTokenUsage(total, usage) {
+  if (!usage || typeof usage !== "object") {
+    return;
+  }
+
+  for (const key of [
+    "input_tokens",
+    "cached_input_tokens",
+    "output_tokens",
+    "reasoning_output_tokens",
+    "total_tokens",
+  ]) {
+    total[key] += toNumber(usage[key]) ?? 0;
+  }
+
+  total.events += 1;
+}
+
+function localDayBounds() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  return {
+    startMs: start.getTime(),
+    endMs: end.getTime(),
+  };
+}
+
+async function readTodayTokenUsage() {
+  const sessionsRoot = path.join(codexHome(), "sessions");
+  const files = await collectSessionFiles(sessionsRoot, 240);
+  const { startMs, endMs } = localDayBounds();
+  const total = emptyTokenUsage();
+
+  for (const file of files) {
+    if (file.mtimeMs < startMs - 60 * 60 * 1000) {
+      continue;
+    }
+
+    let text;
+    try {
+      text = await fs.readFile(file.path, "utf8");
+    } catch {
+      continue;
+    }
+
+    for (const line of text.split(/\r?\n/)) {
+      if (!line.includes('"type":"token_count"') || !line.includes('"last_token_usage"')) {
+        continue;
+      }
+
+      try {
+        const parsed = JSON.parse(line);
+        const timestampMs = new Date(parsed.timestamp).getTime();
+        if (timestampMs >= startMs && timestampMs < endMs) {
+          addTokenUsage(total, parsed.payload?.info?.last_token_usage);
+        }
+      } catch {
+        // Ignore partially-written JSONL lines.
+      }
     }
   }
 
-  return null;
+  return total;
 }
 
 async function readCodexUsage() {
-  const [usage, petImage] = await Promise.all([readLatestRateLimit(), readPetImage()]);
+  const [usage, todayTokenUsage] = await Promise.all([
+    readLatestRateLimit(),
+    readTodayTokenUsage(),
+  ]);
 
   return {
     ...usage,
-    petImage,
+    todayTokenUsage,
     codexHome: codexHome(),
     readAt: new Date().toISOString(),
   };

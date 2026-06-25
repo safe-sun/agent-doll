@@ -7,65 +7,51 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="panel">
-        <header class="titlebar">
-          <div>
-            <p class="eyebrow">Codex 桌宠</p>
-            <h1 id="statusTitle">正在读取用量</h1>
+    <main class="glass-card">
+      <section class="quota-row" aria-label="Codex 用量">
+        <article class="quota-block">
+          <div class="quota-topline">
+            <span>5小时</span>
+            <em id="primaryUsed">已用 --%</em>
           </div>
-          <div class="window-actions">
-            <button id="refreshButton" class="icon-button" type="button" title="刷新">↻</button>
-            <button id="topButton" class="icon-button" type="button" title="取消置顶">▣</button>
-            <button id="closeButton" class="icon-button close" type="button" title="关闭">×</button>
+          <strong id="primaryRemaining">--%</strong>
+          <div class="meter">
+            <span id="primaryBar"></span>
           </div>
-        </header>
+        </article>
 
-        <div class="usage-grid">
-          <article class="usage-card primary">
-            <span class="label">短窗口剩余</span>
-            <strong id="primaryRemaining">--%</strong>
-            <div class="meter" aria-hidden="true">
-              <span id="primaryBar"></span>
-            </div>
-            <p id="primaryReset">等待数据</p>
-          </article>
-
-          <article class="usage-card">
-            <span class="label">长窗口剩余</span>
-            <strong id="secondaryRemaining">--%</strong>
-            <div class="meter secondary" aria-hidden="true">
-              <span id="secondaryBar"></span>
-            </div>
-            <p id="secondaryReset">等待数据</p>
-          </article>
-        </div>
-
-        <footer class="details">
-          <div>
-            <span>最近 token</span>
-            <strong id="lastTokens">--</strong>
+        <article class="quota-block">
+          <div class="quota-topline">
+            <span>本周</span>
+            <em id="secondaryUsed">已用 --%</em>
           </div>
-          <div>
-            <span>套餐</span>
-            <strong id="planType">--</strong>
+          <strong id="secondaryRemaining">--%</strong>
+          <div class="meter weekly">
+            <span id="secondaryBar"></span>
           </div>
-          <div>
-            <span>更新时间</span>
-            <strong id="updatedAt">--</strong>
-          </div>
-        </footer>
+        </article>
       </section>
 
-      <aside class="pet-zone">
-        <div class="bubble" id="petBubble">读取中</div>
-        <div class="pet-frame">
-          <img id="petImage" alt="Codex 桌宠" />
-          <div id="fallbackPet" class="fallback-pet" hidden>
-            <span></span>
-          </div>
+      <section class="token-panel" aria-label="今日 token 统计">
+        <div>
+          <span>今日 token</span>
+          <strong id="todayTokens">--</strong>
         </div>
-      </aside>
+        <dl>
+          <div>
+            <dt>输入</dt>
+            <dd id="todayInput">--</dd>
+          </div>
+          <div>
+            <dt>输出</dt>
+            <dd id="todayOutput">--</dd>
+          </div>
+          <div>
+            <dt>推理</dt>
+            <dd id="todayReasoning">--</dd>
+          </div>
+        </dl>
+      </section>
     </main>
 
     <script src="./renderer.js"></script>
