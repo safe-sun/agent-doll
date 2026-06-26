@@ -133,15 +133,22 @@ function compactNumber(value) {
     return "--";
   }
 
-  if (number >= 100000000) {
-    return `${(number / 100000000).toFixed(1)}亿`;
-  }
+  const compactUnits = [
+    { threshold: 100000000, unit: "亿" },
+    { threshold: 10000, unit: "万" },
+  ];
 
-  if (number >= 10000) {
-    return `${(number / 10000).toFixed(1)}万`;
+  for (const { threshold, unit } of compactUnits) {
+    if (number >= threshold) {
+      return `${formatCompactUnit(number / threshold)}${unit}`;
+    }
   }
 
   return new Intl.NumberFormat("zh-CN").format(number);
+}
+
+function formatCompactUnit(value) {
+  return (Math.floor(value * 10) / 10).toFixed(1).replace(/\.0$/, "");
 }
 
 function updateQuota(window, remainingEl, barEl) {

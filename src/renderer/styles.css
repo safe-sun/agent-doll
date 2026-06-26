@@ -213,7 +213,7 @@ body.theme-on-light {
 .token-panel span,
 .token-panel dt {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   line-height: 1.15;
   text-shadow: var(--text-shadow);
@@ -310,7 +310,7 @@ body.theme-on-light {
 .token-panel {
   position: absolute;
   right: 32px;
-  bottom: 12px;
+  bottom: 16px;
   left: 32px;
   display: grid;
   grid-template-rows: auto auto;
@@ -367,7 +367,7 @@ dd {
 }
 
 dd {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   text-shadow: var(--text-shadow);
 }
@@ -413,19 +413,20 @@ body.is-collapsed .token-panel {
 }
 
 body.is-collapsed .quota-block span {
-  top: 17px;
+  top: 8px;
   right: 0;
   left: 0;
-  font-size: 9px;
+  font-size: 10px;
   text-align: center;
 }
 
 body.is-collapsed .quota-block strong {
-  top: 32px;
+  top: 50%;
   right: 0;
   left: 0;
   font-size: 20px;
   text-align: center;
+  transform: translateY(-50%);
 }
 
 body.is-collapsed .meter {
