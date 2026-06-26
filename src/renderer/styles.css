@@ -86,10 +86,11 @@ body.theme-on-light {
 .glass-card {
   position: relative;
   z-index: 1;
-  width: 100%;
-  height: 100%;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
   overflow: hidden;
   display: block;
+  margin: 1px;
   padding: 0;
   border: 2px solid transparent;
   border-radius: 50%;
@@ -107,7 +108,7 @@ body.theme-on-light {
 
 .screen-sample {
   position: absolute;
-  inset: 0;
+  inset: 1px;
   z-index: 0;
   overflow: hidden;
   border-radius: 50%;
@@ -160,8 +161,8 @@ body.theme-on-light {
   min-width: 0;
   position: absolute;
   top: 16px;
-  right: 21px;
-  left: 21px;
+  right: 24px;
+  left: 24px;
   height: 60px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -191,12 +192,12 @@ body.theme-on-light {
 }
 
 .quota-primary {
-  padding-right: 10px;
+  padding-right: 7px;
   text-align: left;
 }
 
 .quota-weekly {
-  padding-left: 10px;
+  padding-left: 7px;
   text-align: right;
 }
 
@@ -217,20 +218,20 @@ body.theme-on-light {
 
 .quota-primary span,
 .quota-primary strong {
-  left: 0;
+  left: 3px;
 }
 
 .quota-primary span {
-  left: 5px;
+  left: 7px;
 }
 
 .quota-weekly span,
 .quota-weekly strong {
-  right: 0;
+  right: 3px;
 }
 
 .quota-weekly span {
-  right: 5px;
+  right: 7px;
 }
 
 .quota-block strong {
@@ -278,13 +279,13 @@ body.theme-on-light {
 .meter-primary {
   --meter-a: var(--primary-a);
   --meter-b: var(--primary-b);
-  left: 9px;
+  left: 10px;
 }
 
 .meter-weekly {
   --meter-a: var(--weekly-a);
   --meter-b: var(--weekly-b);
-  right: 9px;
+  right: 10px;
 }
 
 .meter span {
@@ -300,9 +301,9 @@ body.theme-on-light {
 
 .token-panel {
   position: absolute;
-  right: 26px;
+  right: 29px;
   bottom: 12px;
-  left: 26px;
+  left: 29px;
   display: grid;
   grid-template-rows: auto auto;
   gap: 3px;
@@ -332,7 +333,7 @@ body.theme-on-light {
 dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  gap: 4px;
   margin: 0;
 }
 
@@ -372,12 +373,15 @@ body.is-collapsed {
 }
 
 body.is-collapsed .glass-card {
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  margin: 1px;
   padding: 0;
   border-radius: 50%;
 }
 
 body.is-collapsed .screen-sample {
-  inset: 0;
+  inset: 1px;
   border-radius: 50%;
   clip-path: circle(50% at 50% 50%);
 }
