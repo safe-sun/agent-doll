@@ -247,9 +247,9 @@ body.theme-on-light {
 .meter {
   --progress-angle: 0deg;
   position: absolute;
-  top: 32px;
-  width: 22px;
-  height: 22px;
+  top: 31px;
+  width: 26px;
+  height: 26px;
   overflow: hidden;
   border-radius: 50%;
   background:
@@ -264,28 +264,28 @@ body.theme-on-light {
   filter: drop-shadow(0 1px 2px var(--meter-soft));
   mask: radial-gradient(
     farthest-side,
-    transparent 0 54%,
-    #000 56% 73%,
-    transparent 75%
+    transparent 0 48%,
+    #000 51% 77%,
+    transparent 80%
   );
   -webkit-mask: radial-gradient(
     farthest-side,
-    transparent 0 54%,
-    #000 56% 73%,
-    transparent 75%
+    transparent 0 48%,
+    #000 51% 77%,
+    transparent 80%
   );
 }
 
 .meter-primary {
   --meter-a: var(--primary-a);
   --meter-b: var(--primary-b);
-  left: 10px;
+  left: 8px;
 }
 
 .meter-weekly {
   --meter-a: var(--weekly-a);
   --meter-b: var(--weekly-b);
-  right: 10px;
+  right: 8px;
 }
 
 .meter span {
@@ -425,9 +425,9 @@ body.is-collapsed .meter {
   top: 43px;
   right: auto;
   bottom: auto;
-  left: calc(50% - 14px);
-  width: 28px;
-  height: 28px;
+  left: calc(50% - 15px);
+  width: 30px;
+  height: 30px;
 }
 
 @keyframes cardIn {
