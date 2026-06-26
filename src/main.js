@@ -17,8 +17,15 @@ let collapsed = false;
 let glowEnabled = false;
 let dragState = null;
 let dragInterval = null;
-const EXPANDED_SIZE = { width: 150, height: 150 };
-const COLLAPSED_SIZE = { width: 84, height: 84 };
+const WINDOW_GLOW_MARGIN = 6;
+const EXPANDED_SIZE = {
+  width: 150 + WINDOW_GLOW_MARGIN * 2,
+  height: 150 + WINDOW_GLOW_MARGIN * 2,
+};
+const COLLAPSED_SIZE = {
+  width: 84 + WINDOW_GLOW_MARGIN * 2,
+  height: 84 + WINDOW_GLOW_MARGIN * 2,
+};
 const EDGE_THRESHOLD = 18;
 const CAPTURE_GEOMETRY_INTERVAL_MS = 80;
 let lastCaptureGeometrySentAt = 0;

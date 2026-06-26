@@ -16,6 +16,7 @@
   --quota-red-a: #c9342c;
   --quota-red-b: #ff6b4a;
   --glass-panel: transparent;
+  --glow-margin: 6px;
   --circle-mask: radial-gradient(
     circle closest-side at 50% 50%,
     #000 calc(100% - 1.2px),
@@ -46,9 +47,34 @@ body {
   position: relative;
   display: grid;
   place-items: center;
-  padding: 0;
+  padding: var(--glow-margin);
   cursor: default;
   user-select: none;
+}
+
+body::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle closest-side at 50% 50%,
+      transparent 0 76%,
+      rgba(255, 255, 255, 0.2) 83%,
+      rgba(255, 255, 255, 0.82) 90%,
+      rgba(255, 255, 255, 0.46) 94%,
+      transparent 100%
+    );
+  filter: blur(3px);
+  transition: opacity 180ms ease;
+}
+
+body.glow-enabled::before {
+  opacity: 1;
 }
 
 body.theme-on-dark {
@@ -107,7 +133,7 @@ body.theme-on-light {
 
 .glass-card {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: calc(100% - 2px);
   height: calc(100% - 2px);
   overflow: hidden;
@@ -143,10 +169,10 @@ body.theme-on-light {
   background:
     radial-gradient(
       circle closest-side at 50% 50%,
-      transparent 0 70%,
-      rgba(255, 255, 255, 0.2) 76%,
-      rgba(255, 255, 255, 0.62) 84%,
-      rgba(255, 255, 255, 0.28) 91%,
+      transparent 0 72%,
+      rgba(255, 255, 255, 0.22) 78%,
+      rgba(255, 255, 255, 0.58) 86%,
+      rgba(255, 255, 255, 0.24) 92%,
       transparent 100%
     );
   transition: opacity 180ms ease;
@@ -160,8 +186,9 @@ body.glow-enabled .glass-card {
     inset 0 0 14px rgba(255, 255, 255, 0.32),
     inset 10px 12px 24px rgba(255, 255, 255, 0.13);
   filter:
-    drop-shadow(0 0 6px rgba(255, 255, 255, 0.48))
-    drop-shadow(0 0 14px rgba(255, 255, 255, 0.24));
+    drop-shadow(0 0 5px rgba(255, 255, 255, 0.78))
+    drop-shadow(0 0 13px rgba(255, 255, 255, 0.46))
+    drop-shadow(0 0 20px rgba(255, 255, 255, 0.22));
 }
 
 body.glow-enabled .glass-card::before {
@@ -170,7 +197,7 @@ body.glow-enabled .glass-card::before {
 
 .screen-sample {
   position: absolute;
-  inset: 1px;
+  inset: calc(var(--glow-margin) + 1px);
   z-index: 0;
   overflow: hidden;
   border-radius: 50%;
@@ -450,7 +477,7 @@ dd {
 }
 
 body.is-collapsed {
-  padding: 0;
+  padding: var(--glow-margin);
 }
 
 body.is-collapsed .glass-card {
@@ -462,7 +489,7 @@ body.is-collapsed .glass-card {
 }
 
 body.is-collapsed .screen-sample {
-  inset: 1px;
+  inset: calc(var(--glow-margin) + 1px);
   border-radius: 50%;
 }
 
