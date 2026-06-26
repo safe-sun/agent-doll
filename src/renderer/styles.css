@@ -91,7 +91,6 @@ body {
   inset: 0;
   overflow: hidden;
   border-radius: inherit;
-  filter: url("#frosted");
   transform: translateZ(0);
 }
 
