@@ -159,10 +159,10 @@ body.theme-on-light {
 .quota-row {
   min-width: 0;
   position: absolute;
-  top: 23px;
-  right: 27px;
-  left: 27px;
-  height: 91px;
+  top: 21px;
+  right: 25px;
+  left: 25px;
+  height: 82px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 5px;
@@ -212,7 +212,7 @@ body.theme-on-light {
 
 .quota-block span {
   position: absolute;
-  top: 5px;
+  top: 3px;
 }
 
 .quota-primary span,
@@ -235,62 +235,56 @@ body.theme-on-light {
 
 .quota-block strong {
   position: absolute;
-  top: 20px;
+  top: 18px;
   display: block;
-  font-size: 24px;
+  font-size: 23px;
   line-height: 1;
   letter-spacing: 0;
   text-shadow: var(--text-shadow);
 }
 
 .meter {
-  --arc-span: 112deg;
-  --arc-start: 210deg;
   --progress-angle: 0deg;
   position: absolute;
-  bottom: -20px;
-  width: 82px;
-  height: 82px;
+  top: 42px;
+  width: 28px;
+  height: 28px;
   overflow: hidden;
   border-radius: 50%;
   background:
     conic-gradient(
-      from var(--arc-start),
+      from -90deg,
       var(--meter-a) 0deg,
       var(--meter-b) var(--progress-angle),
       var(--meter-track) var(--progress-angle),
-      var(--meter-track) var(--arc-span),
-      transparent var(--arc-span),
-      transparent 360deg
+      var(--meter-track) 360deg
     );
   box-shadow: none;
   filter: drop-shadow(0 1px 2px var(--meter-soft));
   mask: radial-gradient(
     farthest-side,
-    transparent 0 58%,
-    #000 59% 74%,
-    transparent 76%
+    transparent 0 54%,
+    #000 56% 73%,
+    transparent 75%
   );
   -webkit-mask: radial-gradient(
     farthest-side,
-    transparent 0 58%,
-    #000 59% 74%,
-    transparent 76%
+    transparent 0 54%,
+    #000 56% 73%,
+    transparent 75%
   );
 }
 
 .meter-primary {
   --meter-a: var(--primary-a);
   --meter-b: var(--primary-b);
-  --arc-start: 211deg;
-  right: -7px;
+  left: 11px;
 }
 
 .meter-weekly {
   --meter-a: var(--weekly-a);
   --meter-b: var(--weekly-b);
-  --arc-start: 37deg;
-  left: -7px;
+  right: 11px;
 }
 
 .meter span {
@@ -306,12 +300,12 @@ body.theme-on-light {
 
 .token-panel {
   position: absolute;
-  right: 42px;
-  bottom: 26px;
-  left: 42px;
+  right: 34px;
+  bottom: 18px;
+  left: 34px;
   display: grid;
   grid-template-rows: auto auto;
-  gap: 6px;
+  gap: 5px;
   padding: 0;
   text-align: center;
 }
@@ -329,7 +323,7 @@ body.theme-on-light {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1;
   letter-spacing: 0;
   text-shadow: var(--text-shadow);
@@ -424,14 +418,12 @@ body.is-collapsed .quota-block strong {
 }
 
 body.is-collapsed .meter {
-  --arc-span: 112deg;
-  --arc-start: 214deg;
-  top: 10px;
+  top: 43px;
   right: auto;
   bottom: auto;
-  left: calc(50% - 25px);
-  width: 50px;
-  height: 50px;
+  left: calc(50% - 14px);
+  width: 28px;
+  height: 28px;
 }
 
 @keyframes cardIn {
