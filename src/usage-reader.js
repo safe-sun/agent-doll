@@ -10,9 +10,25 @@ const USAGE_CACHE_TTL_MS = 75_000;
 
 let cachedUsage = null;
 let pendingUsageRead = null;
+let cachedCodexCommands;
+let preferredCodexCommand = null;
 
 function codexHome() {
-  return process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
+  const configured = process.env.CODEX_HOME?.trim();
+
+  if (!configured) {
+    return path.join(os.homedir(), ".codex");
+  }
+
+  if (configured === "~") {
+    return os.homedir();
+  }
+
+  if (configured.startsWith(`~${path.sep}`) || configured.startsWith("~/")) {
+    return path.join(os.homedir(), configured.slice(2));
+  }
+
+  return path.resolve(configured);
 }
 
 function toNumber(value) {
@@ -103,15 +119,156 @@ function parseJsonLines(chunk, onMessage) {
   }
 }
 
-function readRateLimitsFromAppServer() {
+function commandNeedsShell(command) {
+  if (process.platform !== "win32") {
+    return false;
+  }
+
+  return [".bat", ".cmd", ".ps1"].includes(path.extname(command).toLowerCase());
+}
+
+function isRunnableCodexCandidate(command) {
+  if (process.platform !== "win32") {
+    return true;
+  }
+
+  return [".bat", ".cmd", ".exe"].includes(path.extname(command).toLowerCase());
+}
+
+async function commandExists(command) {
+  try {
+    const stat = await fs.stat(command);
+    return stat.isFile();
+  } catch {
+    return false;
+  }
+}
+
+function runCapture(command, args, timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let stdout = "";
+
+    const child = spawn(command, args, {
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+
+    const timer = setTimeout(() => finish(""), timeoutMs);
+
+    function finish(value) {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timer);
+      if (!child.killed) {
+        child.kill();
+      }
+      resolve(value);
+    }
+
+    child.on("error", () => finish(""));
+    child.stdout.on("data", (data) => {
+      stdout += data.toString("utf8");
+    });
+    child.on("exit", () => finish(stdout));
+  });
+}
+
+function appendUniqueCommand(commands, command) {
+  const normalized = process.platform === "win32" ? command.toLowerCase() : command;
+
+  if (!commands.some((existing) => existing.normalized === normalized)) {
+    commands.push({ command, normalized });
+  }
+}
+
+async function findCodexCommandsOnPath() {
+  const output =
+    process.platform === "win32"
+      ? await runCapture("where.exe", ["codex"])
+      : await runCapture("sh", ["-lc", "command -v codex"]);
+  const candidates = output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const commands = [];
+
+  for (const candidate of candidates) {
+    if (isRunnableCodexCandidate(candidate) && (await commandExists(candidate))) {
+      appendUniqueCommand(commands, candidate);
+    }
+  }
+
+  return commands.map((entry) => entry.command);
+}
+
+async function findCodexCommandsInWindowsApps() {
+  if (process.platform !== "win32") {
+    return [];
+  }
+
+  const windowsApps = path.join(process.env.ProgramFiles || "C:\\Program Files", "WindowsApps");
+  let entries;
+
+  try {
+    entries = await fs.readdir(windowsApps, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const candidates = entries
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith("OpenAI.Codex_"))
+    .map((entry) => path.join(windowsApps, entry.name, "app", "resources", "codex.exe"));
+  const commands = [];
+
+  for (const candidate of candidates) {
+    if (await commandExists(candidate)) {
+      appendUniqueCommand(commands, candidate);
+    }
+  }
+
+  return commands.map((entry) => entry.command).sort().reverse();
+}
+
+async function resolveCodexCommands() {
+  if (cachedCodexCommands !== undefined) {
+    return cachedCodexCommands;
+  }
+
+  const configured = process.env.CODEX_BIN?.trim() || process.env.CODEX_PATH?.trim();
+  const commands = [];
+
+  if (configured && (await commandExists(configured))) {
+    appendUniqueCommand(commands, path.resolve(configured));
+  }
+
+  for (const command of await findCodexCommandsOnPath()) {
+    appendUniqueCommand(commands, command);
+  }
+
+  for (const command of await findCodexCommandsInWindowsApps()) {
+    appendUniqueCommand(commands, command);
+  }
+
+  cachedCodexCommands = commands.map((entry) => ({
+    command: entry.command,
+    shell: commandNeedsShell(entry.command),
+  }));
+  return cachedCodexCommands;
+}
+
+function readRateLimitsWithCommand(codexCommand) {
   return new Promise((resolve, reject) => {
     let settled = false;
     let stdoutRemainder = "";
     let stderrText = "";
 
-    const child = spawn("codex app-server --listen stdio://", {
+    const child = spawn(codexCommand.command, ["app-server", "--listen", "stdio://"], {
       cwd: process.cwd(),
-      shell: true,
+      shell: codexCommand.shell,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
     });
@@ -185,6 +342,30 @@ function readRateLimitsFromAppServer() {
     child.stdin.write(`${JSON.stringify(initialize)}\n`);
     child.stdin.write(`${JSON.stringify(readRateLimits)}\n`);
   });
+}
+
+async function readRateLimitsFromAppServer() {
+  const commands = await resolveCodexCommands();
+  const orderedCommands = preferredCodexCommand
+    ? [
+        preferredCodexCommand,
+        ...commands.filter((command) => command.command !== preferredCodexCommand.command),
+      ]
+    : commands;
+
+  for (const codexCommand of orderedCommands) {
+    try {
+      const usage = await readRateLimitsWithCommand(codexCommand);
+      if (usage) {
+        preferredCodexCommand = codexCommand;
+        return usage;
+      }
+    } catch {
+      // 继续尝试下一个候选命令，最后再回退到本地记录。
+    }
+  }
+
+  return null;
 }
 
 function normalizeUsage(record) {

@@ -21,10 +21,11 @@ npm run dev
 
 应用只读取本机 Codex 数据，不会上传认证信息。
 
-- 5 小时和周用量：优先调用 Codex App 的 `account/rateLimits/read` 接口，读取总体 `codex` 用量桶。
-- 备用用量：Codex App 接口不可用时，才读取 `~/.codex/sessions` 下最近的 `rate_limits` 记录。
+- 5 小时和周用量：优先自动发现本机 `codex` 程序，调用 Codex App 的 `account/rateLimits/read` 接口，读取总体 `codex` 用量桶。
+- 备用用量：Codex App 接口不可用时，才读取当前用户 Codex 目录下最近的 `rate_limits` 记录。
 - 今日 token：累加当天 `token_count` 事件里的 `last_token_usage`。
 - 如果 Codex 最近没有产生 token 统计，界面会显示“未检测到用量记录”。
+- Codex 目录默认是当前用户的 `~/.codex`，也支持用 `CODEX_HOME` 覆盖；`codex` 程序路径支持用 `CODEX_BIN` 或 `CODEX_PATH` 覆盖。
 
 ## 说明
 
