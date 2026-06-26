@@ -9,8 +9,8 @@
   --primary-b: #0d63dc;
   --weekly-a: #195fd0;
   --weekly-b: #9b6b00;
-  --quota-green-a: #087c5d;
-  --quota-green-b: #22b986;
+  --quota-green-a: #087f36;
+  --quota-green-b: #35cf5f;
   --quota-yellow-a: #c48200;
   --quota-yellow-b: #f0b429;
   --quota-red-a: #c9342c;
@@ -66,8 +66,8 @@ body.theme-on-dark {
   --primary-b: #85bbff;
   --weekly-a: #8fbfff;
   --weekly-b: #ffd36a;
-  --quota-green-a: #78f1ca;
-  --quota-green-b: #b7ffd6;
+  --quota-green-a: #7cf08f;
+  --quota-green-b: #c5ffd0;
   --quota-yellow-a: #ffe27a;
   --quota-yellow-b: #ffb84d;
   --quota-red-a: #ff8b7a;
@@ -85,8 +85,8 @@ body.theme-on-light {
   --primary-b: #095cc8;
   --weekly-a: #0d55c0;
   --weekly-b: #7f5700;
-  --quota-green-a: #006f54;
-  --quota-green-b: #16a878;
+  --quota-green-a: #067a31;
+  --quota-green-b: #24b84b;
   --quota-yellow-a: #9a6900;
   --quota-yellow-b: #d99a00;
   --quota-red-a: #a92d27;
