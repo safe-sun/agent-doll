@@ -1,5 +1,14 @@
 const path = require("node:path");
-const { app, BrowserWindow, ipcMain, Menu, screen, shell } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  desktopCapturer,
+  ipcMain,
+  Menu,
+  screen,
+  session,
+  shell,
+} = require("electron");
 const { readCodexUsage } = require("./usage-reader");
 
 let mainWindow;
@@ -10,6 +19,82 @@ let dragInterval = null;
 const EXPANDED_SIZE = { width: 320, height: 128 };
 const COLLAPSED_SIZE = { width: 94, height: 58 };
 const EDGE_THRESHOLD = 18;
+const CAPTURE_GEOMETRY_INTERVAL_MS = 80;
+let lastCaptureGeometrySentAt = 0;
+
+function getCaptureGeometry() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return null;
+  }
+
+  const bounds = mainWindow.getBounds();
+  const display = screen.getDisplayMatching(bounds);
+
+  return {
+    window: bounds,
+    display: display.bounds,
+    displayId: String(display.id),
+    scaleFactor: display.scaleFactor || 1,
+  };
+}
+
+function sendCaptureGeometry(force = false) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  const now = Date.now();
+  if (!force && now - lastCaptureGeometrySentAt < CAPTURE_GEOMETRY_INTERVAL_MS) {
+    return;
+  }
+
+  lastCaptureGeometrySentAt = now;
+  mainWindow.webContents.send(
+    "glass-capture:geometry-changed",
+    getCaptureGeometry(),
+  );
+}
+
+async function getScreenSourceForWindow() {
+  const geometry = getCaptureGeometry();
+  const sources = await desktopCapturer.getSources({
+    types: ["screen"],
+    thumbnailSize: { width: 0, height: 0 },
+  });
+
+  if (!sources.length) {
+    return null;
+  }
+
+  if (!geometry) {
+    return sources[0];
+  }
+
+  return (
+    sources.find((source) => source.display_id === geometry.displayId) ||
+    sources[0]
+  );
+}
+
+function configureDisplayCapture() {
+  session.defaultSession.setDisplayMediaRequestHandler(
+    async (_request, callback) => {
+      try {
+        const source = await getScreenSourceForWindow();
+
+        if (!source) {
+          callback({});
+          return;
+        }
+
+        callback({ video: source });
+      } catch (error) {
+        console.error(error);
+        callback({});
+      }
+    },
+  );
+}
 
 function createWindow() {
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
@@ -49,9 +134,11 @@ function createWindow() {
 
   mainWindow.setMenuBarVisibility(false);
   mainWindow.setAlwaysOnTop(alwaysOnTop, "screen-saver");
+  mainWindow.setContentProtection(true);
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
   mainWindow.webContents.once("did-finish-load", () => {
     mainWindow?.webContents.send("window:collapsed-changed", collapsed);
+    sendCaptureGeometry(true);
   });
   mainWindow.webContents.on("context-menu", (event) => {
     event.preventDefault();
@@ -61,6 +148,7 @@ function createWindow() {
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
     mainWindow.moveTop();
+    sendCaptureGeometry(true);
   });
 
   mainWindow.on("closed", () => {
@@ -102,6 +190,7 @@ function tickDrag() {
     },
     false,
   );
+  sendCaptureGeometry();
 }
 
 function getActiveSize() {
@@ -186,6 +275,7 @@ function setCollapsed(nextCollapsed, edge = null) {
   mainWindow.setMaximumSize(size.width, size.height);
   mainWindow.setBounds(bounds, false);
   mainWindow.webContents.send("window:collapsed-changed", collapsed);
+  sendCaptureGeometry(true);
   return collapsed;
 }
 
@@ -251,6 +341,7 @@ function setAlwaysOnTop(value) {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  configureDisplayCapture();
   createWindow();
 
   app.on("activate", () => {
@@ -314,3 +405,20 @@ ipcMain.handle("window:drag-end", () => {
 });
 
 ipcMain.handle("window:is-collapsed", () => collapsed);
+
+ipcMain.handle("glass-capture:geometry", () => getCaptureGeometry());
+
+ipcMain.handle("glass-capture:source", async () => {
+  const source = await getScreenSourceForWindow();
+
+  if (!source) {
+    return null;
+  }
+
+  return {
+    id: source.id,
+    name: source.name,
+    displayId: source.display_id,
+    geometry: getCaptureGeometry(),
+  };
+});
