@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("codexPet", {
   isAlwaysOnTop: () => ipcRenderer.invoke("window:is-top"),
   showContextMenu: () => ipcRenderer.invoke("window:show-context-menu"),
   isCollapsed: () => ipcRenderer.invoke("window:is-collapsed"),
+  isGlowEnabled: () => ipcRenderer.invoke("window:is-glow-enabled"),
   getGlassCaptureGeometry: () => ipcRenderer.invoke("glass-capture:geometry"),
   getGlassCaptureSource: () => ipcRenderer.invoke("glass-capture:source"),
   onGlassCaptureGeometry: (callback) => {
@@ -23,6 +24,11 @@ contextBridge.exposeInMainWorld("codexPet", {
     const listener = (_event, value) => callback(value);
     ipcRenderer.on("window:collapsed-changed", listener);
     return () => ipcRenderer.removeListener("window:collapsed-changed", listener);
+  },
+  onGlowChange: (callback) => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on("window:glow-changed", listener);
+    return () => ipcRenderer.removeListener("window:glow-changed", listener);
   },
   dragStart: () => ipcRenderer.invoke("window:drag-start"),
   dragEnd: () => ipcRenderer.invoke("window:drag-end"),

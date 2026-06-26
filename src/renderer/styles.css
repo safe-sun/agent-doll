@@ -38,9 +38,7 @@ body {
   color: var(--ink);
   font-family:
     "PingFang SC",
-    "Microsoft YaHei UI",
-    "Microsoft YaHei",
-    "Segoe UI",
+    system-ui,
     sans-serif;
 }
 
@@ -129,6 +127,47 @@ body.theme-on-light {
   outline: 0;
   pointer-events: none;
   animation: cardIn 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    box-shadow 180ms ease,
+    filter 180ms ease;
+}
+
+.glass-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 50% 44%,
+      rgba(255, 255, 255, 0.32) 0 18%,
+      rgba(118, 241, 190, 0.18) 28%,
+      rgba(109, 181, 255, 0.1) 48%,
+      transparent 70%
+    ),
+    radial-gradient(
+      circle at 50% 54%,
+      rgba(255, 255, 255, 0.16) 0 38%,
+      transparent 68%
+    );
+  transition: opacity 180ms ease;
+}
+
+body.glow-enabled .glass-card {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.24),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 24px rgba(255, 255, 255, 0.18),
+    inset 10px 12px 24px rgba(255, 255, 255, 0.13);
+  filter: drop-shadow(0 0 7px rgba(118, 241, 190, 0.28));
+}
+
+body.glow-enabled .glass-card::before {
+  opacity: 1;
 }
 
 .screen-sample {
@@ -175,7 +214,7 @@ body.theme-on-light {
 
 .glass-card > * {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .quota-row,

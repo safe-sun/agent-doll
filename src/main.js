@@ -14,6 +14,7 @@ const { readCodexUsage } = require("./usage-reader");
 let mainWindow;
 let alwaysOnTop = true;
 let collapsed = false;
+let glowEnabled = false;
 let dragState = null;
 let dragInterval = null;
 const EXPANDED_SIZE = { width: 150, height: 150 };
@@ -139,6 +140,7 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
   mainWindow.webContents.once("did-finish-load", () => {
     mainWindow?.webContents.send("window:collapsed-changed", collapsed);
+    mainWindow?.webContents.send("window:glow-changed", glowEnabled);
     sendCaptureGeometry(true);
   });
   mainWindow.webContents.on("context-menu", (event) => {
@@ -293,33 +295,38 @@ function updateCollapseAfterDrag() {
 function createContextMenu() {
   return Menu.buildFromTemplate([
     {
-      label: "刷新用量",
+      label: "刷新",
       click: () =>
         mainWindow?.webContents.send("codex-usage:refresh", { force: true }),
     },
     {
-      label: alwaysOnTop ? "取消置顶" : "保持置顶",
+      label: "置顶",
       type: "checkbox",
       checked: alwaysOnTop,
       click: () => setAlwaysOnTop(!alwaysOnTop),
     },
     {
-      label: collapsed ? "展开窗口" : "收起小窗",
+      label: collapsed ? "展开" : "收起",
       click: () => setCollapsed(!collapsed),
+    },
+    {
+      label: "泛光",
+      type: "checkbox",
+      checked: glowEnabled,
+      click: () => setGlowEnabled(!glowEnabled),
     },
     { type: "separator" },
     {
-      label: "打开 Codex 目录",
+      label: "Codex 目录",
       click: async () => {
         const usage = await readCodexUsage();
         await shell.openPath(usage.codexHome);
       },
     },
     {
-      label: "重新载入窗口",
+      label: "重载",
       click: () => mainWindow?.reload(),
     },
-    { type: "separator" },
     {
       label: "退出",
       click: () => app.quit(),
@@ -339,6 +346,12 @@ function setAlwaysOnTop(value) {
   }
 
   return alwaysOnTop;
+}
+
+function setGlowEnabled(value) {
+  glowEnabled = value;
+  mainWindow?.webContents.send("window:glow-changed", glowEnabled);
+  return glowEnabled;
 }
 
 if (!gotSingleInstanceLock) {
@@ -426,6 +439,8 @@ ipcMain.handle("window:drag-end", () => {
 });
 
 ipcMain.handle("window:is-collapsed", () => collapsed);
+
+ipcMain.handle("window:is-glow-enabled", () => glowEnabled);
 
 ipcMain.handle("glass-capture:geometry", () => getCaptureGeometry());
 

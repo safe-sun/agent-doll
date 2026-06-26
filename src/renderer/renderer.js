@@ -995,6 +995,9 @@ window.codexPet.onCollapsedChange((value) => {
   glassRenderer?.invalidateMap();
   syncCaptureGeometry();
 });
+window.codexPet.onGlowChange((value) => {
+  document.body.classList.toggle("glow-enabled", Boolean(value));
+});
 window.codexPet.onGlassCaptureGeometry((geometry) => {
   const nextDisplayId = applyCaptureGeometry(geometry);
   if (
@@ -1053,8 +1056,12 @@ window.addEventListener("beforeunload", () => {
 });
 
 async function syncWindowState() {
-  const collapsed = await window.codexPet.isCollapsed();
+  const [collapsed, glowEnabled] = await Promise.all([
+    window.codexPet.isCollapsed(),
+    window.codexPet.isGlowEnabled(),
+  ]);
   document.body.classList.toggle("is-collapsed", Boolean(collapsed));
+  document.body.classList.toggle("glow-enabled", Boolean(glowEnabled));
   glassRenderer?.invalidateMap();
 }
 
