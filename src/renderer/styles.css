@@ -10,6 +10,12 @@
   --weekly-a: #195fd0;
   --weekly-b: #9b6b00;
   --glass-panel: transparent;
+  --circle-mask: radial-gradient(
+    circle closest-side at 50% 50%,
+    #000 calc(100% - 1.2px),
+    rgba(0, 0, 0, 0.72) calc(100% - 0.45px),
+    transparent 100%
+  );
 }
 
 * {
@@ -92,12 +98,13 @@ body.theme-on-light {
   display: block;
   margin: 1px;
   padding: 0;
-  border: 2px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.54);
   border-radius: 50%;
-  clip-path: circle(50% at 50% 50%);
   background: rgba(255, 255, 255, 0.08);
+  -webkit-mask-image: var(--circle-mask);
+  mask-image: var(--circle-mask);
   box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.58),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
     inset 1px 1px 0 rgba(255, 255, 255, 0.34),
     inset -1px -1px 0 rgba(255, 255, 255, 0.12),
     inset 10px 12px 24px rgba(255, 255, 255, 0.11);
@@ -114,7 +121,8 @@ body.theme-on-light {
   border-radius: 50%;
   opacity: 0;
   pointer-events: none;
-  clip-path: circle(50% at 50% 50%);
+  -webkit-mask-image: var(--circle-mask);
+  mask-image: var(--circle-mask);
   contain: paint;
   transition: opacity 160ms ease;
 }
@@ -161,8 +169,8 @@ body.theme-on-light {
   min-width: 0;
   position: absolute;
   top: 16px;
-  right: 24px;
-  left: 24px;
+  right: 27px;
+  left: 27px;
   height: 60px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -192,12 +200,12 @@ body.theme-on-light {
 }
 
 .quota-primary {
-  padding-right: 7px;
+  padding-right: 5px;
   text-align: left;
 }
 
 .quota-weekly {
-  padding-left: 7px;
+  padding-left: 5px;
   text-align: right;
 }
 
@@ -218,20 +226,20 @@ body.theme-on-light {
 
 .quota-primary span,
 .quota-primary strong {
-  left: 3px;
+  left: 5px;
 }
 
 .quota-primary span {
-  left: 7px;
+  left: 9px;
 }
 
 .quota-weekly span,
 .quota-weekly strong {
-  right: 3px;
+  right: 5px;
 }
 
 .quota-weekly span {
-  right: 7px;
+  right: 9px;
 }
 
 .quota-block strong {
@@ -279,13 +287,13 @@ body.theme-on-light {
 .meter-primary {
   --meter-a: var(--primary-a);
   --meter-b: var(--primary-b);
-  left: 8px;
+  left: 9px;
 }
 
 .meter-weekly {
   --meter-a: var(--weekly-a);
   --meter-b: var(--weekly-b);
-  right: 8px;
+  right: 9px;
 }
 
 .meter span {
@@ -301,9 +309,9 @@ body.theme-on-light {
 
 .token-panel {
   position: absolute;
-  right: 29px;
+  right: 32px;
   bottom: 12px;
-  left: 29px;
+  left: 32px;
   display: grid;
   grid-template-rows: auto auto;
   gap: 3px;
@@ -333,7 +341,7 @@ body.theme-on-light {
 dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
+  gap: 2px;
   margin: 0;
 }
 
@@ -383,7 +391,6 @@ body.is-collapsed .glass-card {
 body.is-collapsed .screen-sample {
   inset: 1px;
   border-radius: 50%;
-  clip-path: circle(50% at 50% 50%);
 }
 
 body.is-collapsed .quota-row {
@@ -406,7 +413,7 @@ body.is-collapsed .token-panel {
 }
 
 body.is-collapsed .quota-block span {
-  top: 2px;
+  top: 17px;
   right: 0;
   left: 0;
   font-size: 9px;
@@ -414,7 +421,7 @@ body.is-collapsed .quota-block span {
 }
 
 body.is-collapsed .quota-block strong {
-  top: 17px;
+  top: 32px;
   right: 0;
   left: 0;
   font-size: 20px;
@@ -422,12 +429,7 @@ body.is-collapsed .quota-block strong {
 }
 
 body.is-collapsed .meter {
-  top: 43px;
-  right: auto;
-  bottom: auto;
-  left: calc(50% - 15px);
-  width: 30px;
-  height: 30px;
+  display: none;
 }
 
 @keyframes cardIn {
