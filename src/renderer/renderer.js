@@ -998,6 +998,9 @@ window.codexPet.onCollapsedChange((value) => {
 window.codexPet.onGlowChange((value) => {
   document.body.classList.toggle("glow-enabled", Boolean(value));
 });
+window.codexPet.onGlowBreathingChange((value) => {
+  document.body.classList.toggle("glow-breathing", Boolean(value));
+});
 window.codexPet.onGlassCaptureGeometry((geometry) => {
   const nextDisplayId = applyCaptureGeometry(geometry);
   if (
@@ -1056,12 +1059,17 @@ window.addEventListener("beforeunload", () => {
 });
 
 async function syncWindowState() {
-  const [collapsed, glowEnabled] = await Promise.all([
+  const [collapsed, glowEnabled, glowBreathing] = await Promise.all([
     window.codexPet.isCollapsed(),
     window.codexPet.isGlowEnabled(),
+    window.codexPet.isGlowBreathing(),
   ]);
   document.body.classList.toggle("is-collapsed", Boolean(collapsed));
   document.body.classList.toggle("glow-enabled", Boolean(glowEnabled));
+  document.body.classList.toggle(
+    "glow-breathing",
+    Boolean(glowEnabled && glowBreathing),
+  );
   glassRenderer?.invalidateMap();
 }
 

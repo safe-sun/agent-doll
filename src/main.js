@@ -15,6 +15,7 @@ let mainWindow;
 let alwaysOnTop = true;
 let collapsed = false;
 let glowEnabled = false;
+let glowBreathing = false;
 let dragState = null;
 let dragInterval = null;
 const WINDOW_GLOW_MARGIN = 6;
@@ -148,6 +149,10 @@ function createWindow() {
   mainWindow.webContents.once("did-finish-load", () => {
     mainWindow?.webContents.send("window:collapsed-changed", collapsed);
     mainWindow?.webContents.send("window:glow-changed", glowEnabled);
+    mainWindow?.webContents.send(
+      "window:glow-breathing-changed",
+      glowBreathing,
+    );
     sendCaptureGeometry(true);
   });
   mainWindow.webContents.on("context-menu", (event) => {
@@ -322,6 +327,13 @@ function createContextMenu() {
       checked: glowEnabled,
       click: () => setGlowEnabled(!glowEnabled),
     },
+    {
+      label: "呼吸",
+      type: "checkbox",
+      enabled: glowEnabled,
+      checked: glowEnabled && glowBreathing,
+      click: () => setGlowBreathing(!glowBreathing),
+    },
     { type: "separator" },
     {
       label: "Codex 目录",
@@ -357,8 +369,21 @@ function setAlwaysOnTop(value) {
 
 function setGlowEnabled(value) {
   glowEnabled = value;
+  if (!glowEnabled) {
+    glowBreathing = false;
+    mainWindow?.webContents.send(
+      "window:glow-breathing-changed",
+      glowBreathing,
+    );
+  }
   mainWindow?.webContents.send("window:glow-changed", glowEnabled);
   return glowEnabled;
+}
+
+function setGlowBreathing(value) {
+  glowBreathing = glowEnabled && value;
+  mainWindow?.webContents.send("window:glow-breathing-changed", glowBreathing);
+  return glowBreathing;
 }
 
 if (!gotSingleInstanceLock) {
@@ -448,6 +473,8 @@ ipcMain.handle("window:drag-end", () => {
 ipcMain.handle("window:is-collapsed", () => collapsed);
 
 ipcMain.handle("window:is-glow-enabled", () => glowEnabled);
+
+ipcMain.handle("window:is-glow-breathing", () => glowBreathing);
 
 ipcMain.handle("glass-capture:geometry", () => getCaptureGeometry());
 

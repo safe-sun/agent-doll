@@ -77,6 +77,10 @@ body.glow-enabled::before {
   opacity: 1;
 }
 
+body.glow-enabled.glow-breathing::before {
+  animation: glowBreathOuter 2.6s ease-in-out infinite;
+}
+
 body.theme-on-dark {
   color-scheme: dark;
   --ink: rgba(255, 255, 255, 0.94);
@@ -193,6 +197,10 @@ body.glow-enabled .glass-card {
 
 body.glow-enabled .glass-card::before {
   opacity: 1;
+}
+
+body.glow-enabled.glow-breathing .glass-card::before {
+  animation: glowBreathInner 2.6s ease-in-out infinite;
 }
 
 .screen-sample {
@@ -545,8 +553,32 @@ body.is-collapsed .meter {
   }
 }
 
+@keyframes glowBreathOuter {
+  0%,
+  100% {
+    opacity: 0.58;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes glowBreathInner {
+  0%,
+  100% {
+    opacity: 0.52;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .glass-card,
+  body.glow-enabled.glow-breathing::before,
+  body.glow-enabled.glow-breathing .glass-card::before,
   .meter span {
     animation: none;
     transition: none;
