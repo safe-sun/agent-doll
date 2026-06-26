@@ -17,6 +17,9 @@
   --quota-red-b: #ff6b4a;
   --glass-panel: transparent;
   --glow-margin: 6px;
+  --quota-panel-x: 27px;
+  --quota-gap: 4px;
+  --quota-ring-size: 26px;
   --circle-mask: radial-gradient(
     circle closest-side at 50% 50%,
     #000 calc(100% - 1.2px),
@@ -259,12 +262,12 @@ body.glow-enabled.glow-breathing .glass-card::before {
   min-width: 0;
   position: absolute;
   top: 16px;
-  right: 27px;
-  left: 27px;
+  right: var(--quota-panel-x);
+  left: var(--quota-panel-x);
   height: 60px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
+  gap: var(--quota-gap);
 }
 
 .quota-block,
@@ -290,12 +293,12 @@ body.glow-enabled.glow-breathing .glass-card::before {
 }
 
 .quota-primary {
-  padding-right: 5px;
-  text-align: left;
+  padding: 0;
+  text-align: center;
 }
 
 .quota-weekly {
-  padding-left: 5px;
+  padding: 0;
   text-align: center;
 }
 
@@ -312,36 +315,23 @@ body.glow-enabled.glow-breathing .glass-card::before {
 .quota-block span {
   position: absolute;
   top: 1px;
-}
-
-.quota-primary span,
-.quota-primary strong {
-  left: 5px;
-}
-
-.quota-primary span {
-  left: 9px;
-}
-
-.quota-weekly span,
-.quota-weekly strong {
-  right: auto;
-  left: 4.5px;
-  width: 34px;
+  right: 0;
+  left: 0;
+  width: 100%;
   text-align: center;
-}
-
-.quota-weekly span {
-  left: 4.5px;
 }
 
 .quota-block strong {
   position: absolute;
   top: 13px;
+  right: 0;
+  left: 0;
   display: block;
+  width: 100%;
   font-size: 18px;
   line-height: 1;
   letter-spacing: 0;
+  text-align: center;
   text-shadow: var(--text-shadow);
 }
 
@@ -349,8 +339,9 @@ body.glow-enabled.glow-breathing .glass-card::before {
   --progress-angle: 0deg;
   position: absolute;
   top: 31px;
-  width: 26px;
-  height: 26px;
+  left: 50%;
+  width: var(--quota-ring-size);
+  height: var(--quota-ring-size);
   overflow: hidden;
   border-radius: 50%;
   background:
@@ -375,18 +366,17 @@ body.glow-enabled.glow-breathing .glass-card::before {
     #000 51% 77%,
     transparent 80%
   );
+  transform: translateX(-50%);
 }
 
 .meter-primary {
   --meter-a: var(--primary-a);
   --meter-b: var(--primary-b);
-  left: 9px;
 }
 
 .meter-weekly {
   --meter-a: var(--weekly-a);
   --meter-b: var(--weekly-b);
-  right: 10px;
 }
 
 .meter[data-quota-level="green"] {
@@ -417,9 +407,9 @@ body.glow-enabled.glow-breathing .glass-card::before {
 
 .token-panel {
   position: absolute;
-  right: 27px;
+  right: var(--quota-panel-x);
   bottom: 16px;
-  left: 27px;
+  left: var(--quota-panel-x);
   display: grid;
   grid-template-rows: auto auto;
   gap: 3px;
@@ -449,7 +439,7 @@ body.glow-enabled.glow-breathing .glass-card::before {
 dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2px;
+  gap: var(--quota-gap);
   margin: 0;
 }
 
