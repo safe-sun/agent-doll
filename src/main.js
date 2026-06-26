@@ -16,11 +16,50 @@ let alwaysOnTop = true;
 let collapsed = false;
 let dragState = null;
 let dragInterval = null;
-const EXPANDED_SIZE = { width: 320, height: 128 };
-const COLLAPSED_SIZE = { width: 94, height: 58 };
+let shapeWarningShown = false;
+const EXPANDED_SIZE = { width: 228, height: 228 };
+const COLLAPSED_SIZE = { width: 96, height: 96 };
 const EDGE_THRESHOLD = 18;
 const CAPTURE_GEOMETRY_INTERVAL_MS = 80;
 let lastCaptureGeometrySentAt = 0;
+
+function createCircleShape(size) {
+  const diameter = Math.min(size.width, size.height);
+  const radius = diameter / 2;
+  const center = radius;
+  const rects = [];
+
+  for (let y = 0; y < diameter; y += 1) {
+    const dy = y + 0.5 - center;
+    const halfWidth = Math.sqrt(Math.max(0, radius * radius - dy * dy));
+    const x = Math.max(0, Math.floor(center - halfWidth));
+    const right = Math.min(diameter, Math.ceil(center + halfWidth));
+
+    rects.push({
+      x,
+      y,
+      width: Math.max(1, right - x),
+      height: 1,
+    });
+  }
+
+  return rects;
+}
+
+function applyWindowShape(size = getActiveSize()) {
+  if (!mainWindow || typeof mainWindow.setShape !== "function") {
+    return;
+  }
+
+  try {
+    mainWindow.setShape(createCircleShape(size));
+  } catch (error) {
+    if (!shapeWarningShown) {
+      console.warn("Circular window shape is unavailable.", error);
+      shapeWarningShown = true;
+    }
+  }
+}
 
 function getCaptureGeometry() {
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -135,6 +174,7 @@ function createWindow() {
   mainWindow.setMenuBarVisibility(false);
   mainWindow.setAlwaysOnTop(alwaysOnTop, "screen-saver");
   mainWindow.setContentProtection(true);
+  applyWindowShape(EXPANDED_SIZE);
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
   mainWindow.webContents.once("did-finish-load", () => {
     mainWindow?.webContents.send("window:collapsed-changed", collapsed);
@@ -274,6 +314,7 @@ function setCollapsed(nextCollapsed, edge = null) {
   mainWindow.setMinimumSize(size.width, size.height);
   mainWindow.setMaximumSize(size.width, size.height);
   mainWindow.setBounds(bounds, false);
+  applyWindowShape(size);
   mainWindow.webContents.send("window:collapsed-changed", collapsed);
   sendCaptureGeometry(true);
   return collapsed;

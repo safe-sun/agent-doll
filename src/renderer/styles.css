@@ -32,7 +32,7 @@ body {
   position: relative;
   display: grid;
   place-items: center;
-  padding: 7px;
+  padding: 0;
   user-select: none;
 }
 
@@ -57,30 +57,32 @@ body {
   height: 100%;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 0.88fr 0.88fr 1.34fr;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 0.82fr);
   place-items: stretch;
-  gap: 7px;
-  padding: 9px;
+  gap: 8px;
+  padding: 38px 28px 34px;
   border: 2px solid transparent;
-  border-radius: 25px;
+  border-radius: 50%;
+  clip-path: circle(50% at 50% 50%);
   background: rgba(255, 255, 255, 0.08);
   box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.6),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.28),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.12);
+    0 0 0 2px rgba(255, 255, 255, 0.58),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.34),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.12),
+    inset 10px 12px 24px rgba(255, 255, 255, 0.11);
   outline: 0;
   animation: cardIn 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .screen-sample {
   position: absolute;
-  inset: 7px;
+  inset: 0;
   z-index: 0;
   overflow: hidden;
-  border-radius: 25px;
+  border-radius: 50%;
   opacity: 0;
   pointer-events: none;
-  clip-path: inset(0 round 25px);
+  clip-path: circle(50% at 50% 50%);
   contain: paint;
   transition: opacity 160ms ease;
 }
@@ -124,7 +126,11 @@ body {
 }
 
 .quota-row {
-  display: contents;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-self: end;
+  gap: 8px;
 }
 
 .quota-block,
@@ -156,9 +162,11 @@ body {
 
 .quota-block {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(24px, auto) auto;
   align-items: center;
-  padding: 9px 9px 8px;
+  gap: 6px;
+  padding: 0 3px;
+  text-align: center;
 }
 
 .quota-block span,
@@ -173,7 +181,7 @@ body {
 .quota-block strong {
   display: block;
   align-self: center;
-  font-size: 20px;
+  font-size: 23px;
   line-height: 1;
   letter-spacing: 0;
 }
@@ -205,17 +213,18 @@ body {
 
 .token-panel {
   display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 7px;
-  padding: 9px;
+  grid-template-rows: auto auto;
+  align-self: start;
+  gap: 8px;
+  padding: 0 16px;
+  text-align: center;
 }
 
 .token-total {
   min-width: 0;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 7px;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
 }
 
 .token-panel strong {
@@ -232,13 +241,14 @@ body {
 dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 10px;
   margin: 0;
 }
 
 dl div {
   min-width: 0;
   display: grid;
+  justify-items: center;
   align-content: center;
   gap: 2px;
   padding: 3px 0;
@@ -266,33 +276,36 @@ dd {
 }
 
 body.is-collapsed {
-  padding: 5px;
+  padding: 0;
 }
 
 body.is-collapsed .glass-card {
   grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
   gap: 0;
-  padding: 6px;
-  border-radius: 19px;
+  padding: 22px 18px;
+  border-radius: 50%;
 }
 
 body.is-collapsed .screen-sample {
-  inset: 5px;
-  border-radius: 19px;
-  clip-path: inset(0 round 19px);
+  inset: 0;
+  border-radius: 50%;
+  clip-path: circle(50% at 50% 50%);
 }
 
 body.is-collapsed .quota-row {
-  display: block;
+  display: grid;
   min-width: 0;
   height: 100%;
+  place-items: center;
 }
 
 body.is-collapsed .quota-block:first-child {
   width: 100%;
   height: 100%;
-  border-radius: 14px;
-  padding: 6px 8px 7px;
+  border-radius: 50%;
+  padding: 0;
+  gap: 5px;
 }
 
 body.is-collapsed .quota-block:nth-child(2),
@@ -305,7 +318,7 @@ body.is-collapsed .quota-block span {
 }
 
 body.is-collapsed .quota-block strong {
-  font-size: 18px;
+  font-size: 20px;
 }
 
 body.is-collapsed .meter {
