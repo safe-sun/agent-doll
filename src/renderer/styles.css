@@ -38,10 +38,8 @@ body {
 
 .svg-filters {
   position: absolute;
-  left: -1px;
-  top: -1px;
-  width: 1px;
-  height: 1px;
+  width: 0;
+  height: 0;
   overflow: hidden;
   pointer-events: none;
 }
@@ -97,11 +95,20 @@ body {
   transform: translateZ(0);
 }
 
-.screen-sample video {
-  position: absolute;
+.screen-sample canvas {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: fill;
+}
+
+.screen-sample video {
+  position: absolute;
+  left: -10000px;
+  top: -10000px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .capture-ready .screen-sample {

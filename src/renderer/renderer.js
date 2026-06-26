@@ -6,12 +6,16 @@ const todayTokens = document.querySelector("#todayTokens");
 const todayInput = document.querySelector("#todayInput");
 const todayOutput = document.querySelector("#todayOutput");
 const screenSample = document.querySelector("#screenSample");
+const screenCanvas = document.querySelector("#screenCanvas");
+const screenContext = screenCanvas.getContext("2d", { alpha: false });
 const screenVideo = document.querySelector("#screenVideo");
 let dragging = false;
 let activePointerId = null;
 let captureStream = null;
 let captureDisplayId = null;
 let captureRestarting = false;
+let captureGeometry = null;
+let sampleFrameId = null;
 
 function percentText(value) {
   if (!Number.isFinite(value)) {
@@ -76,6 +80,12 @@ function renderUsage(usage) {
 function setCaptureReady(isReady) {
   document.body.classList.toggle("capture-ready", isReady);
   document.body.classList.toggle("capture-error", !isReady);
+
+  if (isReady) {
+    startScreenSampleRendering();
+  } else {
+    stopScreenSampleRendering();
+  }
 }
 
 function stopCaptureStream() {
@@ -87,22 +97,108 @@ function stopCaptureStream() {
 
   captureStream = null;
   captureDisplayId = null;
+  captureGeometry = null;
   screenVideo.srcObject = null;
+  stopScreenSampleRendering();
+}
+
+function resizeScreenCanvas() {
+  const sampleRect = screenSample.getBoundingClientRect();
+  const scale = Math.max(
+    1,
+    Math.ceil(window.devicePixelRatio || captureGeometry?.scaleFactor || 1),
+  );
+  const width = Math.max(1, Math.round(sampleRect.width * scale));
+  const height = Math.max(1, Math.round(sampleRect.height * scale));
+
+  if (screenCanvas.width !== width || screenCanvas.height !== height) {
+    screenCanvas.width = width;
+    screenCanvas.height = height;
+  }
+}
+
+function drawScreenSample() {
+  sampleFrameId = window.requestAnimationFrame(drawScreenSample);
+
+  if (
+    !captureStream ||
+    !captureGeometry ||
+    screenVideo.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+    !screenVideo.videoWidth ||
+    !screenVideo.videoHeight
+  ) {
+    return;
+  }
+
+  const sampleRect = screenSample.getBoundingClientRect();
+  const display = captureGeometry.display;
+  const windowBounds = captureGeometry.window;
+
+  if (!sampleRect.width || !sampleRect.height || !display.width || !display.height) {
+    return;
+  }
+
+  resizeScreenCanvas();
+
+  const sourceScaleX = screenVideo.videoWidth / display.width;
+  const sourceScaleY = screenVideo.videoHeight / display.height;
+  const sourceX =
+    (windowBounds.x + sampleRect.left - display.x) * sourceScaleX;
+  const sourceY =
+    (windowBounds.y + sampleRect.top - display.y) * sourceScaleY;
+  const sourceWidth = sampleRect.width * sourceScaleX;
+  const sourceHeight = sampleRect.height * sourceScaleY;
+  const clampedX = Math.max(0, Math.min(screenVideo.videoWidth - 1, sourceX));
+  const clampedY = Math.max(0, Math.min(screenVideo.videoHeight - 1, sourceY));
+  const clampedWidth = Math.max(
+    1,
+    Math.min(screenVideo.videoWidth - clampedX, sourceWidth),
+  );
+  const clampedHeight = Math.max(
+    1,
+    Math.min(screenVideo.videoHeight - clampedY, sourceHeight),
+  );
+
+  screenContext.clearRect(0, 0, screenCanvas.width, screenCanvas.height);
+  screenContext.drawImage(
+    screenVideo,
+    clampedX,
+    clampedY,
+    clampedWidth,
+    clampedHeight,
+    0,
+    0,
+    screenCanvas.width,
+    screenCanvas.height,
+  );
+}
+
+function startScreenSampleRendering() {
+  if (sampleFrameId !== null) {
+    return;
+  }
+
+  resizeScreenCanvas();
+  sampleFrameId = window.requestAnimationFrame(drawScreenSample);
+}
+
+function stopScreenSampleRendering() {
+  if (sampleFrameId !== null) {
+    window.cancelAnimationFrame(sampleFrameId);
+    sampleFrameId = null;
+  }
+
+  screenContext.clearRect(0, 0, screenCanvas.width, screenCanvas.height);
 }
 
 function applyCaptureGeometry(geometry) {
   if (!geometry || !geometry.window || !geometry.display) {
+    captureGeometry = null;
     return null;
   }
 
-  const sampleRect = screenSample.getBoundingClientRect();
-  const offsetX = geometry.display.x - geometry.window.x - sampleRect.left;
-  const offsetY = geometry.display.y - geometry.window.y - sampleRect.top;
-
-  screenVideo.style.left = `${offsetX}px`;
-  screenVideo.style.top = `${offsetY}px`;
-  screenVideo.style.width = `${geometry.display.width}px`;
-  screenVideo.style.height = `${geometry.display.height}px`;
+  captureGeometry = geometry;
+  resizeScreenCanvas();
 
   return geometry.displayId;
 }
