@@ -15,6 +15,9 @@ const CAPTURE_CURSOR_MODE = "never";
 const GLASS_RENDER_FPS = 60;
 const GLASS_RENDER_INTERVAL_MS = 1000 / GLASS_RENDER_FPS;
 const MAX_RENDER_SCALE = 1;
+const PROGRESS_ARC_DEGREES = 112;
+const CONTRAST_SAMPLE_SIZE = 10;
+const CONTRAST_UPDATE_INTERVAL_MS = 240;
 const GLASS_RENDER = {
   expanded: {
     blurStdDeviation: 0.02,
@@ -96,6 +99,13 @@ const glassRenderer = createGlassRenderer();
 const fallbackScreenContext = glassRenderer
   ? null
   : screenCanvas.getContext("2d", { alpha: false });
+const contrastCanvas = document.createElement("canvas");
+contrastCanvas.width = CONTRAST_SAMPLE_SIZE;
+contrastCanvas.height = CONTRAST_SAMPLE_SIZE;
+const contrastContext = contrastCanvas.getContext("2d", {
+  alpha: false,
+  willReadFrequently: true,
+});
 let dragging = false;
 let activePointerId = null;
 let captureStream = null;
@@ -105,6 +115,8 @@ let captureGeometry = null;
 let sampleFrameCallbackId = null;
 let sampleFrameCallbackType = null;
 let lastSampleRenderAt = 0;
+let lastContrastUpdateAt = 0;
+let lastContrastTheme = "";
 
 function percentText(value) {
   if (!Number.isFinite(value)) {
@@ -135,13 +147,24 @@ function compactNumber(value) {
 function updateQuota(window, remainingEl, barEl) {
   if (!window) {
     remainingEl.textContent = "--%";
-    barEl.style.width = "0%";
+    setQuotaProgress(barEl, 0);
     return;
   }
 
   const remaining = Number(window.remainingPercent);
   remainingEl.textContent = percentText(remaining);
-  barEl.style.width = `${Math.max(0, Math.min(100, remaining || 0))}%`;
+  setQuotaProgress(barEl, remaining || 0);
+}
+
+function setQuotaProgress(barEl, percent) {
+  const clamped = Math.max(0, Math.min(100, Number(percent) || 0));
+  const meterEl = barEl.closest(".meter");
+
+  barEl.style.width = `${clamped}%`;
+  meterEl?.style.setProperty(
+    "--progress-angle",
+    `${(clamped / 100) * PROGRESS_ARC_DEGREES}deg`,
+  );
 }
 
 function updateTodayTokens(usage) {
@@ -543,7 +566,7 @@ function renderDisplacementPass(renderer, metrics) {
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
-function renderGlassWithWebGL(metrics) {
+function renderGlassWithWebGL(metrics, source) {
   const renderer = glassRenderer;
 
   if (!renderer) {
@@ -551,7 +574,6 @@ function renderGlassWithWebGL(metrics) {
   }
 
   const gl = renderer.gl;
-  const source = getVideoSource(metrics);
 
   try {
     resizeGlassRenderTargets(renderer, metrics);
@@ -591,12 +613,11 @@ function renderGlassWithWebGL(metrics) {
   }
 }
 
-function renderGlassWithCanvas(metrics) {
+function renderGlassWithCanvas(metrics, source) {
   if (!fallbackScreenContext) {
     return;
   }
 
-  const source = getVideoSource(metrics);
   fallbackScreenContext.clearRect(0, 0, metrics.width, metrics.height);
   fallbackScreenContext.filter = `blur(${
     Math.max(metrics.width, metrics.height) *
@@ -614,6 +635,76 @@ function renderGlassWithCanvas(metrics) {
     metrics.height,
   );
   fallbackScreenContext.filter = "none";
+}
+
+function getRelativeLuminance(red, green, blue) {
+  const channels = [red, green, blue].map((value) => {
+    const normalized = value / 255;
+    return normalized <= 0.03928
+      ? normalized / 12.92
+      : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+}
+
+function updateAdaptiveContrast(source) {
+  if (!contrastContext) {
+    return;
+  }
+
+  const now = performance.now();
+  if (now - lastContrastUpdateAt < CONTRAST_UPDATE_INTERVAL_MS) {
+    return;
+  }
+
+  lastContrastUpdateAt = now;
+
+  try {
+    contrastContext.drawImage(
+      screenVideo,
+      source.x,
+      source.y,
+      source.width,
+      source.height,
+      0,
+      0,
+      CONTRAST_SAMPLE_SIZE,
+      CONTRAST_SAMPLE_SIZE,
+    );
+
+    const data = contrastContext.getImageData(
+      0,
+      0,
+      CONTRAST_SAMPLE_SIZE,
+      CONTRAST_SAMPLE_SIZE,
+    ).data;
+    let luminance = 0;
+
+    for (let index = 0; index < data.length; index += 4) {
+      luminance += getRelativeLuminance(
+        data[index],
+        data[index + 1],
+        data[index + 2],
+      );
+    }
+
+    luminance /= data.length / 4;
+
+    const theme = luminance > 0.48 ? "theme-on-light" : "theme-on-dark";
+    if (theme === lastContrastTheme) {
+      return;
+    }
+
+    document.body.classList.toggle("theme-on-light", theme === "theme-on-light");
+    document.body.classList.toggle("theme-on-dark", theme === "theme-on-dark");
+    lastContrastTheme = theme;
+  } catch (error) {
+    if (!lastContrastTheme) {
+      document.body.classList.add("theme-on-light");
+      lastContrastTheme = "theme-on-light";
+    }
+  }
 }
 
 function drawScreenSampleFrame() {
@@ -639,8 +730,11 @@ function drawScreenSampleFrame() {
     return;
   }
 
-  if (!renderGlassWithWebGL(metrics)) {
-    renderGlassWithCanvas(metrics);
+  const source = getVideoSource(metrics);
+  updateAdaptiveContrast(source);
+
+  if (!renderGlassWithWebGL(metrics, source)) {
+    renderGlassWithCanvas(metrics, source);
   }
 }
 
