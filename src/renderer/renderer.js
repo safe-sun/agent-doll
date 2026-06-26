@@ -168,10 +168,23 @@ function setQuotaProgress(barEl, percent) {
   const meterEl = barEl.closest(".meter");
 
   barEl.style.width = `${clamped}%`;
+  meterEl?.setAttribute("data-quota-level", quotaLevel(clamped));
   meterEl?.style.setProperty(
     "--progress-angle",
     `${(clamped / 100) * PROGRESS_ARC_DEGREES}deg`,
   );
+}
+
+function quotaLevel(percent) {
+  if (percent > 50) {
+    return "green";
+  }
+
+  if (percent >= 20) {
+    return "yellow";
+  }
+
+  return "red";
 }
 
 function updateTodayTokens(usage) {
