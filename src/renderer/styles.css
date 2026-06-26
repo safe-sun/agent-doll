@@ -135,23 +135,19 @@ body.theme-on-light {
 .glass-card::before {
   content: "";
   position: absolute;
-  inset: -1px;
+  inset: 0;
   z-index: 1;
   border-radius: inherit;
   opacity: 0;
   pointer-events: none;
   background:
     radial-gradient(
-      circle at 50% 44%,
-      rgba(255, 255, 255, 0.32) 0 18%,
-      rgba(118, 241, 190, 0.18) 28%,
-      rgba(109, 181, 255, 0.1) 48%,
-      transparent 70%
-    ),
-    radial-gradient(
-      circle at 50% 54%,
-      rgba(255, 255, 255, 0.16) 0 38%,
-      transparent 68%
+      circle closest-side at 50% 50%,
+      transparent 0 70%,
+      rgba(255, 255, 255, 0.2) 76%,
+      rgba(255, 255, 255, 0.62) 84%,
+      rgba(255, 255, 255, 0.28) 91%,
+      transparent 100%
     );
   transition: opacity 180ms ease;
 }
@@ -161,9 +157,11 @@ body.glow-enabled .glass-card {
     inset 0 0 0 1px rgba(255, 255, 255, 0.24),
     inset 1px 1px 0 rgba(255, 255, 255, 0.42),
     inset -1px -1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 0 24px rgba(255, 255, 255, 0.18),
+    inset 0 0 14px rgba(255, 255, 255, 0.32),
     inset 10px 12px 24px rgba(255, 255, 255, 0.13);
-  filter: drop-shadow(0 0 7px rgba(118, 241, 190, 0.28));
+  filter:
+    drop-shadow(0 0 6px rgba(255, 255, 255, 0.48))
+    drop-shadow(0 0 14px rgba(255, 255, 255, 0.24));
 }
 
 body.glow-enabled .glass-card::before {
@@ -263,7 +261,7 @@ body.glow-enabled .glass-card::before {
 
 .quota-weekly {
   padding-left: 5px;
-  text-align: right;
+  text-align: center;
 }
 
 .quota-block span,
@@ -292,11 +290,14 @@ body.glow-enabled .glass-card::before {
 
 .quota-weekly span,
 .quota-weekly strong {
-  right: 5px;
+  right: auto;
+  left: 4.5px;
+  width: 34px;
+  text-align: center;
 }
 
 .quota-weekly span {
-  right: 9px;
+  left: 4.5px;
 }
 
 .quota-block strong {
@@ -350,7 +351,7 @@ body.glow-enabled .glass-card::before {
 .meter-weekly {
   --meter-a: var(--weekly-a);
   --meter-b: var(--weekly-b);
-  right: 9px;
+  right: 10px;
 }
 
 .meter[data-quota-level="green"] {
@@ -381,9 +382,9 @@ body.glow-enabled .glass-card::before {
 
 .token-panel {
   position: absolute;
-  right: 32px;
+  right: 27px;
   bottom: 16px;
-  left: 32px;
+  left: 27px;
   display: grid;
   grid-template-rows: auto auto;
   gap: 3px;
