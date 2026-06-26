@@ -17,12 +17,12 @@ const GLASS_RENDER_INTERVAL_MS = 1000 / GLASS_RENDER_FPS;
 const MAX_RENDER_SCALE = 1;
 const GLASS_RENDER = {
   expanded: {
-    blurRadius: 18,
-    displacement: 6,
+    blurStdDeviation: 0.02,
+    displacement: 1,
   },
   compact: {
-    blurRadius: 12,
-    displacement: 4.5,
+    blurStdDeviation: 0.02,
+    displacement: 1,
   },
 };
 const GLASS_VERTEX_SHADER = `
@@ -35,14 +35,48 @@ const GLASS_VERTEX_SHADER = `
     vUv = aUv;
   }
 `;
-const GLASS_FRAGMENT_SHADER = `
+const GLASS_BLUR_FRAGMENT_SHADER = `
   precision mediump float;
 
-  uniform sampler2D uVideo;
-  uniform sampler2D uMap;
+  uniform sampler2D uTexture;
   uniform vec4 uSourceRect;
-  uniform vec2 uDisplaySize;
-  uniform float uBlurRadius;
+  uniform vec2 uBlurStep;
+  varying vec2 vUv;
+
+  vec2 clampUv(vec2 uv) {
+    return clamp(uv, vec2(0.001), vec2(0.999));
+  }
+
+  vec4 sampleGaussian(vec2 uv) {
+    vec4 color = texture2D(uTexture, clampUv(uv)) * 0.199676;
+
+    color += texture2D(uTexture, clampUv(uv + uBlurStep * 1.0)) * 0.176213;
+    color += texture2D(uTexture, clampUv(uv - uBlurStep * 1.0)) * 0.176213;
+    color += texture2D(uTexture, clampUv(uv + uBlurStep * 2.0)) * 0.121109;
+    color += texture2D(uTexture, clampUv(uv - uBlurStep * 2.0)) * 0.121109;
+    color += texture2D(uTexture, clampUv(uv + uBlurStep * 3.0)) * 0.064826;
+    color += texture2D(uTexture, clampUv(uv - uBlurStep * 3.0)) * 0.064826;
+    color += texture2D(uTexture, clampUv(uv + uBlurStep * 4.0)) * 0.027023;
+    color += texture2D(uTexture, clampUv(uv - uBlurStep * 4.0)) * 0.027023;
+    color += texture2D(uTexture, clampUv(uv + uBlurStep * 5.0)) * 0.008773;
+    color += texture2D(uTexture, clampUv(uv - uBlurStep * 5.0)) * 0.008773;
+    color += texture2D(uTexture, clampUv(uv + uBlurStep * 6.0)) * 0.002218;
+    color += texture2D(uTexture, clampUv(uv - uBlurStep * 6.0)) * 0.002218;
+
+    return color;
+  }
+
+  void main() {
+    vec2 uv = uSourceRect.xy + vUv * uSourceRect.zw;
+
+    gl_FragColor = sampleGaussian(uv);
+  }
+`;
+const GLASS_DISPLACE_FRAGMENT_SHADER = `
+  precision mediump float;
+
+  uniform sampler2D uTexture;
+  uniform sampler2D uMap;
   uniform float uDisplacement;
   varying vec2 vUv;
 
@@ -50,61 +84,10 @@ const GLASS_FRAGMENT_SHADER = `
     return clamp(uv, vec2(0.001), vec2(0.999));
   }
 
-  vec4 sampleBlur(vec2 uv) {
-    vec2 radius = vec2(uBlurRadius) / uDisplaySize;
-    vec2 ringA = radius * 0.28;
-    vec2 ringB = radius * 0.55;
-    vec2 ringC = radius * 0.82;
-    vec4 color = texture2D(uVideo, clampUv(uv)) * 0.14;
-
-    color += texture2D(uVideo, clampUv(uv + vec2(ringA.x, 0.0))) * 0.04;
-    color += texture2D(uVideo, clampUv(uv - vec2(ringA.x, 0.0))) * 0.04;
-    color += texture2D(uVideo, clampUv(uv + vec2(0.0, ringA.y))) * 0.04;
-    color += texture2D(uVideo, clampUv(uv - vec2(0.0, ringA.y))) * 0.04;
-    color += texture2D(uVideo, clampUv(uv + ringA * vec2(0.7071, 0.7071))) * 0.04;
-    color += texture2D(uVideo, clampUv(uv - ringA * vec2(0.7071, 0.7071))) * 0.04;
-    color += texture2D(uVideo, clampUv(uv + ringA * vec2(0.7071, -0.7071))) * 0.04;
-    color += texture2D(uVideo, clampUv(uv + ringA * vec2(-0.7071, 0.7071))) * 0.04;
-
-    color += texture2D(uVideo, clampUv(uv + vec2(ringB.x, 0.0))) * 0.026;
-    color += texture2D(uVideo, clampUv(uv - vec2(ringB.x, 0.0))) * 0.026;
-    color += texture2D(uVideo, clampUv(uv + vec2(0.0, ringB.y))) * 0.026;
-    color += texture2D(uVideo, clampUv(uv - vec2(0.0, ringB.y))) * 0.026;
-    color += texture2D(uVideo, clampUv(uv + ringB * vec2(0.8660, 0.5))) * 0.026;
-    color += texture2D(uVideo, clampUv(uv - ringB * vec2(0.8660, 0.5))) * 0.026;
-    color += texture2D(uVideo, clampUv(uv + ringB * vec2(0.8660, -0.5))) * 0.026;
-    color += texture2D(uVideo, clampUv(uv + ringB * vec2(-0.8660, 0.5))) * 0.026;
-    color += texture2D(uVideo, clampUv(uv + ringB * vec2(0.5, 0.8660))) * 0.026;
-    color += texture2D(uVideo, clampUv(uv - ringB * vec2(0.5, 0.8660))) * 0.026;
-    color += texture2D(uVideo, clampUv(uv + ringB * vec2(0.5, -0.8660))) * 0.026;
-    color += texture2D(uVideo, clampUv(uv + ringB * vec2(-0.5, 0.8660))) * 0.026;
-
-    color += texture2D(uVideo, clampUv(uv + vec2(ringC.x, 0.0))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv - vec2(ringC.x, 0.0))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv + vec2(0.0, ringC.y))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv - vec2(0.0, ringC.y))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.9239, 0.3827))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv - ringC * vec2(0.9239, 0.3827))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.9239, -0.3827))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv + ringC * vec2(-0.9239, 0.3827))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.7071, 0.7071))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv - ringC * vec2(0.7071, 0.7071))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.7071, -0.7071))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv + ringC * vec2(-0.7071, 0.7071))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.3827, 0.9239))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv - ringC * vec2(0.3827, 0.9239))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.3827, -0.9239))) * 0.01425;
-    color += texture2D(uVideo, clampUv(uv + ringC * vec2(-0.3827, 0.9239))) * 0.01425;
-
-    return color;
-  }
-
   void main() {
     vec2 mapValue = texture2D(uMap, vUv).rg;
-    vec2 displacement =
-      ((mapValue - vec2(0.5)) * 2.0 * uDisplacement) / uDisplaySize;
-    vec2 videoUv = uSourceRect.xy + vUv * uSourceRect.zw + displacement;
-    vec4 color = sampleBlur(videoUv);
+    vec2 displacement = (mapValue - vec2(0.5)) * uDisplacement;
+    vec4 color = texture2D(uTexture, clampUv(vUv + displacement));
 
     gl_FragColor = vec4(color.rgb, 1.0);
   }
@@ -236,6 +219,82 @@ function createTexture(gl) {
   return texture;
 }
 
+function createRenderTarget(gl) {
+  return {
+    framebuffer: gl.createFramebuffer(),
+    height: 0,
+    texture: createTexture(gl),
+    width: 0,
+  };
+}
+
+function resizeRenderTarget(gl, target, width, height) {
+  if (target.width === width && target.height === height) {
+    return;
+  }
+
+  gl.bindTexture(gl.TEXTURE_2D, target.texture);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    width,
+    height,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    null,
+  );
+  gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+  gl.framebufferTexture2D(
+    gl.FRAMEBUFFER,
+    gl.COLOR_ATTACHMENT0,
+    gl.TEXTURE_2D,
+    target.texture,
+    0,
+  );
+
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+    throw new Error("Failed to create glass blur framebuffer.");
+  }
+
+  target.width = width;
+  target.height = height;
+}
+
+function createProgramInfo(gl, fragmentSource) {
+  const program = createProgram(gl, GLASS_VERTEX_SHADER, fragmentSource);
+
+  return {
+    positionLocation: gl.getAttribLocation(program, "aPosition"),
+    program,
+    uniforms: {
+      blurStep: gl.getUniformLocation(program, "uBlurStep"),
+      displacement: gl.getUniformLocation(program, "uDisplacement"),
+      map: gl.getUniformLocation(program, "uMap"),
+      sourceRect: gl.getUniformLocation(program, "uSourceRect"),
+      texture: gl.getUniformLocation(program, "uTexture"),
+    },
+    uvLocation: gl.getAttribLocation(program, "aUv"),
+  };
+}
+
+function useProgramInfo(gl, renderer, programInfo) {
+  gl.useProgram(programInfo.program);
+  gl.bindBuffer(gl.ARRAY_BUFFER, renderer.buffer);
+  gl.enableVertexAttribArray(programInfo.positionLocation);
+  gl.vertexAttribPointer(
+    programInfo.positionLocation,
+    2,
+    gl.FLOAT,
+    false,
+    16,
+    0,
+  );
+  gl.enableVertexAttribArray(programInfo.uvLocation);
+  gl.vertexAttribPointer(programInfo.uvLocation, 2, gl.FLOAT, false, 16, 8);
+}
+
 function createGlassRenderer() {
   const gl = screenCanvas.getContext("webgl", {
     alpha: false,
@@ -252,10 +311,10 @@ function createGlassRenderer() {
   }
 
   try {
-    const program = createProgram(
+    const blurProgram = createProgramInfo(gl, GLASS_BLUR_FRAGMENT_SHADER);
+    const displaceProgram = createProgramInfo(
       gl,
-      GLASS_VERTEX_SHADER,
-      GLASS_FRAGMENT_SHADER,
+      GLASS_DISPLACE_FRAGMENT_SHADER,
     );
     const vertices = new Float32Array([
       -1, -1, 0, 1,
@@ -264,26 +323,13 @@ function createGlassRenderer() {
       1, 1, 1, 0,
     ]);
     const buffer = gl.createBuffer();
-    const positionLocation = gl.getAttribLocation(program, "aPosition");
-    const uvLocation = gl.getAttribLocation(program, "aUv");
-    const uniforms = {
-      blurRadius: gl.getUniformLocation(program, "uBlurRadius"),
-      displacement: gl.getUniformLocation(program, "uDisplacement"),
-      displaySize: gl.getUniformLocation(program, "uDisplaySize"),
-      map: gl.getUniformLocation(program, "uMap"),
-      sourceRect: gl.getUniformLocation(program, "uSourceRect"),
-      video: gl.getUniformLocation(program, "uVideo"),
-    };
     const videoTexture = createTexture(gl);
     const mapTexture = createTexture(gl);
+    const horizontalBlur = createRenderTarget(gl);
+    const verticalBlur = createRenderTarget(gl);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-    gl.useProgram(program);
-    gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 16, 0);
-    gl.enableVertexAttribArray(uvLocation);
-    gl.vertexAttribPointer(uvLocation, 2, gl.FLOAT, false, 16, 8);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, videoTexture);
     gl.texImage2D(
@@ -310,18 +356,27 @@ function createGlassRenderer() {
       gl.UNSIGNED_BYTE,
       new Uint8Array([128, 128, 128, 255]),
     );
-    gl.uniform1i(uniforms.video, 0);
-    gl.uniform1i(uniforms.map, 1);
+    useProgramInfo(gl, { buffer }, blurProgram);
+    gl.uniform1i(blurProgram.uniforms.texture, 0);
+    useProgramInfo(gl, { buffer }, displaceProgram);
+    gl.uniform1i(displaceProgram.uniforms.texture, 0);
+    gl.uniform1i(displaceProgram.uniforms.map, 1);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.STENCIL_TEST);
+    gl.disable(gl.BLEND);
 
     return {
+      blurProgram,
+      buffer,
+      displaceProgram,
       gl,
+      horizontalBlur,
       invalidateMap() {
         this.mapKey = "";
       },
       mapKey: "",
       mapTexture,
-      program,
-      uniforms,
+      verticalBlur,
       videoTexture,
     };
   } catch (error) {
@@ -419,6 +474,14 @@ function getVideoSource(metrics) {
   };
 }
 
+function resizeGlassRenderTargets(renderer, metrics) {
+  const gl = renderer.gl;
+
+  resizeRenderTarget(gl, renderer.horizontalBlur, metrics.width, metrics.height);
+  resizeRenderTarget(gl, renderer.verticalBlur, metrics.width, metrics.height);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
 function updateMapTexture(renderer) {
   const image = getActiveDisplacementMap();
   const mode = document.body.classList.contains("is-collapsed")
@@ -444,6 +507,42 @@ function updateMapTexture(renderer) {
   renderer.mapKey = mode;
 }
 
+function renderBlurPass(
+  renderer,
+  inputTexture,
+  framebuffer,
+  sourceRect,
+  blurStep,
+  metrics,
+) {
+  const gl = renderer.gl;
+  const program = renderer.blurProgram;
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+  gl.viewport(0, 0, metrics.width, metrics.height);
+  useProgramInfo(gl, renderer, program);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, inputTexture);
+  gl.uniform4fv(program.uniforms.sourceRect, sourceRect);
+  gl.uniform2f(program.uniforms.blurStep, blurStep[0], blurStep[1]);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+function renderDisplacementPass(renderer, metrics) {
+  const gl = renderer.gl;
+  const program = renderer.displaceProgram;
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, metrics.width, metrics.height);
+  useProgramInfo(gl, renderer, program);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, renderer.verticalBlur.texture);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, renderer.mapTexture);
+  gl.uniform1f(program.uniforms.displacement, metrics.settings.displacement);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
 function renderGlassWithWebGL(metrics) {
   const renderer = glassRenderer;
 
@@ -455,8 +554,7 @@ function renderGlassWithWebGL(metrics) {
   const source = getVideoSource(metrics);
 
   try {
-    gl.viewport(0, 0, metrics.width, metrics.height);
-    gl.useProgram(renderer.program);
+    resizeGlassRenderTargets(renderer, metrics);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, renderer.videoTexture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -469,21 +567,23 @@ function renderGlassWithWebGL(metrics) {
       screenVideo,
     );
     updateMapTexture(renderer);
-    gl.uniform4fv(renderer.uniforms.sourceRect, source.normalized);
-    gl.uniform2f(
-      renderer.uniforms.displaySize,
-      captureGeometry.display.width,
-      captureGeometry.display.height,
+    renderBlurPass(
+      renderer,
+      renderer.videoTexture,
+      renderer.horizontalBlur.framebuffer,
+      source.normalized,
+      [metrics.settings.blurStdDeviation * source.normalized[2] * 0.5, 0],
+      metrics,
     );
-    gl.uniform1f(
-      renderer.uniforms.blurRadius,
-      metrics.settings.blurRadius * metrics.scale,
+    renderBlurPass(
+      renderer,
+      renderer.horizontalBlur.texture,
+      renderer.verticalBlur.framebuffer,
+      [0, 0, 1, 1],
+      [0, metrics.settings.blurStdDeviation * 0.5],
+      metrics,
     );
-    gl.uniform1f(
-      renderer.uniforms.displacement,
-      metrics.settings.displacement * metrics.scale,
-    );
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    renderDisplacementPass(renderer, metrics);
     return true;
   } catch (error) {
     console.warn("Falling back to canvas blur.", error);
@@ -499,7 +599,8 @@ function renderGlassWithCanvas(metrics) {
   const source = getVideoSource(metrics);
   fallbackScreenContext.clearRect(0, 0, metrics.width, metrics.height);
   fallbackScreenContext.filter = `blur(${
-    metrics.settings.blurRadius * metrics.scale
+    Math.max(metrics.width, metrics.height) *
+    metrics.settings.blurStdDeviation
   }px)`;
   fallbackScreenContext.drawImage(
     screenVideo,
