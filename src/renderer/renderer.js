@@ -28,6 +28,10 @@ const displacementMapContext = displacementMapCanvas.getContext("2d", {
 });
 const expandedDisplacementMap = createDisplacementMapImage("frosted");
 const compactDisplacementMap = createDisplacementMapImage("frostedCompact");
+const CAPTURE_FRAME_RATE = 20;
+const GLASS_RENDER_FPS = 20;
+const GLASS_RENDER_INTERVAL_MS = 1000 / GLASS_RENDER_FPS;
+const MAX_RENDER_SCALE = 1;
 const GLASS_RENDER = {
   expanded: {
     blurRadius: 13,
@@ -46,8 +50,13 @@ let captureStream = null;
 let captureDisplayId = null;
 let captureRestarting = false;
 let captureGeometry = null;
-let sampleFrameId = null;
+let sampleFrameCallbackId = null;
+let sampleFrameCallbackType = null;
+let lastSampleRenderAt = 0;
 let displacementMapCacheKey = "";
+let displacementMapData = null;
+let outputImageData = null;
+let outputImageDataCacheKey = "";
 let sampleReadbackFailed = false;
 
 function percentText(value) {
@@ -148,7 +157,7 @@ function resizeScreenCanvas() {
   const scale = Math.max(
     1,
     Math.min(
-      2,
+      MAX_RENDER_SCALE,
       Math.ceil(window.devicePixelRatio || captureGeometry?.scaleFactor || 1),
     ),
   );
@@ -162,6 +171,7 @@ function resizeScreenCanvas() {
     screenCanvas.width = width;
     screenCanvas.height = height;
     displacementMapCacheKey = "";
+    outputImageDataCacheKey = "";
   }
 
   if (
@@ -226,6 +236,12 @@ function updateDisplacementMap(metrics) {
   displacementMapContext.clearRect(0, 0, metrics.width, metrics.height);
   displacementMapContext.drawImage(
     image,
+    0,
+    0,
+    metrics.width,
+    metrics.height,
+  );
+  displacementMapData = displacementMapContext.getImageData(
     0,
     0,
     metrics.width,
@@ -320,7 +336,7 @@ function drawBlurredSample(metrics) {
 }
 
 function drawDisplacedSample(metrics) {
-  if (!updateDisplacementMap(metrics)) {
+  if (!updateDisplacementMap(metrics) || !displacementMapData) {
     drawBlurredSample(metrics);
     return;
   }
@@ -332,40 +348,55 @@ function drawDisplacedSample(metrics) {
       metrics.bufferWidth,
       metrics.bufferHeight,
     );
-    const map = displacementMapContext.getImageData(
-      0,
-      0,
-      metrics.width,
-      metrics.height,
-    );
-    const output = screenContext.createImageData(metrics.width, metrics.height);
+    const map = displacementMapData;
+    const outputKey = `${metrics.width}x${metrics.height}`;
+
+    if (!outputImageData || outputImageDataCacheKey !== outputKey) {
+      outputImageData = screenContext.createImageData(
+        metrics.width,
+        metrics.height,
+      );
+      outputImageDataCacheKey = outputKey;
+    }
+
+    const output = outputImageData;
+    const sourceData = source.data;
+    const mapData = map.data;
+    const outputData = output.data;
+    const width = metrics.width;
+    const height = metrics.height;
+    const bufferWidth = metrics.bufferWidth;
+    const bufferHeight = metrics.bufferHeight;
+    const overscanPixels = metrics.overscanPixels;
     const displacement = metrics.settings.displacement * metrics.scale;
 
-    for (let y = 0; y < metrics.height; y += 1) {
-      for (let x = 0; x < metrics.width; x += 1) {
-        const targetIndex = (y * metrics.width + x) * 4;
-        const dx = ((map.data[targetIndex] - 128) / 127) * displacement;
-        const dy = ((map.data[targetIndex + 1] - 128) / 127) * displacement;
-        const sourceX = Math.max(
-          0,
-          Math.min(
-            metrics.bufferWidth - 1,
-            Math.round(x + metrics.overscanPixels + dx),
-          ),
-        );
-        const sourceY = Math.max(
-          0,
-          Math.min(
-            metrics.bufferHeight - 1,
-            Math.round(y + metrics.overscanPixels + dy),
-          ),
-        );
-        const sourceIndex = (sourceY * metrics.bufferWidth + sourceX) * 4;
+    for (let y = 0; y < height; y += 1) {
+      const rowOffset = y * width;
+      for (let x = 0; x < width; x += 1) {
+        const targetIndex = (rowOffset + x) * 4;
+        const dx = ((mapData[targetIndex] - 128) / 127) * displacement;
+        const dy = ((mapData[targetIndex + 1] - 128) / 127) * displacement;
+        let sourceX = Math.round(x + overscanPixels + dx);
+        let sourceY = Math.round(y + overscanPixels + dy);
 
-        output.data[targetIndex] = source.data[sourceIndex];
-        output.data[targetIndex + 1] = source.data[sourceIndex + 1];
-        output.data[targetIndex + 2] = source.data[sourceIndex + 2];
-        output.data[targetIndex + 3] = 255;
+        if (sourceX < 0) {
+          sourceX = 0;
+        } else if (sourceX >= bufferWidth) {
+          sourceX = bufferWidth - 1;
+        }
+
+        if (sourceY < 0) {
+          sourceY = 0;
+        } else if (sourceY >= bufferHeight) {
+          sourceY = bufferHeight - 1;
+        }
+
+        const sourceIndex = (sourceY * bufferWidth + sourceX) * 4;
+
+        outputData[targetIndex] = sourceData[sourceIndex];
+        outputData[targetIndex + 1] = sourceData[sourceIndex + 1];
+        outputData[targetIndex + 2] = sourceData[sourceIndex + 2];
+        outputData[targetIndex + 3] = 255;
       }
     }
 
@@ -381,9 +412,7 @@ function drawDisplacedSample(metrics) {
   }
 }
 
-function drawScreenSample() {
-  sampleFrameId = window.requestAnimationFrame(drawScreenSample);
-
+function drawScreenSampleFrame() {
   if (
     !captureStream ||
     !captureGeometry ||
@@ -422,19 +451,74 @@ function drawScreenSample() {
   drawDisplacedSample(metrics);
 }
 
+function scheduleScreenSampleFrame() {
+  if (sampleFrameCallbackId !== null) {
+    return;
+  }
+
+  if (screenVideo.requestVideoFrameCallback) {
+    sampleFrameCallbackType = "video";
+    sampleFrameCallbackId = screenVideo.requestVideoFrameCallback(
+      handleScreenVideoFrame,
+    );
+    return;
+  }
+
+  sampleFrameCallbackType = "timer";
+  sampleFrameCallbackId = window.setTimeout(
+    handleTimedScreenFrame,
+    GLASS_RENDER_INTERVAL_MS,
+  );
+}
+
+function handleScreenVideoFrame(now) {
+  sampleFrameCallbackId = null;
+  sampleFrameCallbackType = null;
+
+  if (now - lastSampleRenderAt >= GLASS_RENDER_INTERVAL_MS) {
+    lastSampleRenderAt = now;
+    drawScreenSampleFrame();
+  }
+
+  if (captureStream) {
+    scheduleScreenSampleFrame();
+  }
+}
+
+function handleTimedScreenFrame() {
+  sampleFrameCallbackId = null;
+  sampleFrameCallbackType = null;
+  lastSampleRenderAt = performance.now();
+  drawScreenSampleFrame();
+
+  if (captureStream) {
+    scheduleScreenSampleFrame();
+  }
+}
+
 function startScreenSampleRendering() {
-  if (sampleFrameId !== null) {
+  if (sampleFrameCallbackId !== null) {
     return;
   }
 
   resizeScreenCanvas();
-  sampleFrameId = window.requestAnimationFrame(drawScreenSample);
+  lastSampleRenderAt = 0;
+  scheduleScreenSampleFrame();
 }
 
 function stopScreenSampleRendering() {
-  if (sampleFrameId !== null) {
-    window.cancelAnimationFrame(sampleFrameId);
-    sampleFrameId = null;
+  if (sampleFrameCallbackId !== null) {
+    if (
+      sampleFrameCallbackType === "video" &&
+      screenVideo.cancelVideoFrameCallback
+    ) {
+      screenVideo.cancelVideoFrameCallback(sampleFrameCallbackId);
+    } else {
+      window.clearTimeout(sampleFrameCallbackId);
+    }
+
+    sampleFrameCallbackId = null;
+    sampleFrameCallbackType = null;
   }
 
   screenContext.clearRect(0, 0, screenCanvas.width, screenCanvas.height);
@@ -479,7 +563,7 @@ async function requestScreenStream() {
     return await navigator.mediaDevices.getDisplayMedia({
       audio: false,
       video: {
-        frameRate: { ideal: 30, max: 30 },
+        frameRate: { ideal: CAPTURE_FRAME_RATE, max: CAPTURE_FRAME_RATE },
       },
     });
   } catch (displayMediaError) {
@@ -500,8 +584,8 @@ async function requestScreenStream() {
         mandatory: {
           chromeMediaSource: "desktop",
           chromeMediaSourceId: source.id,
-          minFrameRate: 15,
-          maxFrameRate: 30,
+          minFrameRate: 10,
+          maxFrameRate: CAPTURE_FRAME_RATE,
         },
       },
     });
