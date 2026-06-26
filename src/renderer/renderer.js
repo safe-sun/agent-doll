@@ -17,12 +17,12 @@ const GLASS_RENDER_INTERVAL_MS = 1000 / GLASS_RENDER_FPS;
 const MAX_RENDER_SCALE = 1;
 const GLASS_RENDER = {
   expanded: {
-    blurRadius: 13,
-    displacement: 9,
+    blurRadius: 18,
+    displacement: 6,
   },
   compact: {
-    blurRadius: 9,
-    displacement: 7,
+    blurRadius: 12,
+    displacement: 4.5,
   },
 };
 const GLASS_VERTEX_SHADER = `
@@ -52,25 +52,49 @@ const GLASS_FRAGMENT_SHADER = `
 
   vec4 sampleBlur(vec2 uv) {
     vec2 radius = vec2(uBlurRadius) / uDisplaySize;
-    vec2 radiusA = radius * 0.45;
-    vec2 radiusB = radius * 0.32;
-    vec2 radiusC = radius * 0.85;
-    vec4 color = texture2D(uVideo, clampUv(uv)) * 0.18;
+    vec2 ringA = radius * 0.28;
+    vec2 ringB = radius * 0.55;
+    vec2 ringC = radius * 0.82;
+    vec4 color = texture2D(uVideo, clampUv(uv)) * 0.14;
 
-    color += texture2D(uVideo, clampUv(uv + vec2(radiusA.x, 0.0))) * 0.12;
-    color += texture2D(uVideo, clampUv(uv - vec2(radiusA.x, 0.0))) * 0.12;
-    color += texture2D(uVideo, clampUv(uv + vec2(0.0, radiusA.y))) * 0.12;
-    color += texture2D(uVideo, clampUv(uv - vec2(0.0, radiusA.y))) * 0.12;
+    color += texture2D(uVideo, clampUv(uv + vec2(ringA.x, 0.0))) * 0.04;
+    color += texture2D(uVideo, clampUv(uv - vec2(ringA.x, 0.0))) * 0.04;
+    color += texture2D(uVideo, clampUv(uv + vec2(0.0, ringA.y))) * 0.04;
+    color += texture2D(uVideo, clampUv(uv - vec2(0.0, ringA.y))) * 0.04;
+    color += texture2D(uVideo, clampUv(uv + ringA * vec2(0.7071, 0.7071))) * 0.04;
+    color += texture2D(uVideo, clampUv(uv - ringA * vec2(0.7071, 0.7071))) * 0.04;
+    color += texture2D(uVideo, clampUv(uv + ringA * vec2(0.7071, -0.7071))) * 0.04;
+    color += texture2D(uVideo, clampUv(uv + ringA * vec2(-0.7071, 0.7071))) * 0.04;
 
-    color += texture2D(uVideo, clampUv(uv + radiusB)) * 0.07;
-    color += texture2D(uVideo, clampUv(uv - radiusB)) * 0.07;
-    color += texture2D(uVideo, clampUv(uv + vec2(radiusB.x, -radiusB.y))) * 0.07;
-    color += texture2D(uVideo, clampUv(uv + vec2(-radiusB.x, radiusB.y))) * 0.07;
+    color += texture2D(uVideo, clampUv(uv + vec2(ringB.x, 0.0))) * 0.026;
+    color += texture2D(uVideo, clampUv(uv - vec2(ringB.x, 0.0))) * 0.026;
+    color += texture2D(uVideo, clampUv(uv + vec2(0.0, ringB.y))) * 0.026;
+    color += texture2D(uVideo, clampUv(uv - vec2(0.0, ringB.y))) * 0.026;
+    color += texture2D(uVideo, clampUv(uv + ringB * vec2(0.8660, 0.5))) * 0.026;
+    color += texture2D(uVideo, clampUv(uv - ringB * vec2(0.8660, 0.5))) * 0.026;
+    color += texture2D(uVideo, clampUv(uv + ringB * vec2(0.8660, -0.5))) * 0.026;
+    color += texture2D(uVideo, clampUv(uv + ringB * vec2(-0.8660, 0.5))) * 0.026;
+    color += texture2D(uVideo, clampUv(uv + ringB * vec2(0.5, 0.8660))) * 0.026;
+    color += texture2D(uVideo, clampUv(uv - ringB * vec2(0.5, 0.8660))) * 0.026;
+    color += texture2D(uVideo, clampUv(uv + ringB * vec2(0.5, -0.8660))) * 0.026;
+    color += texture2D(uVideo, clampUv(uv + ringB * vec2(-0.5, 0.8660))) * 0.026;
 
-    color += texture2D(uVideo, clampUv(uv + vec2(radiusC.x, 0.0))) * 0.015;
-    color += texture2D(uVideo, clampUv(uv - vec2(radiusC.x, 0.0))) * 0.015;
-    color += texture2D(uVideo, clampUv(uv + vec2(0.0, radiusC.y))) * 0.015;
-    color += texture2D(uVideo, clampUv(uv - vec2(0.0, radiusC.y))) * 0.015;
+    color += texture2D(uVideo, clampUv(uv + vec2(ringC.x, 0.0))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv - vec2(ringC.x, 0.0))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv + vec2(0.0, ringC.y))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv - vec2(0.0, ringC.y))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.9239, 0.3827))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv - ringC * vec2(0.9239, 0.3827))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.9239, -0.3827))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv + ringC * vec2(-0.9239, 0.3827))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.7071, 0.7071))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv - ringC * vec2(0.7071, 0.7071))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.7071, -0.7071))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv + ringC * vec2(-0.7071, 0.7071))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.3827, 0.9239))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv - ringC * vec2(0.3827, 0.9239))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv + ringC * vec2(0.3827, -0.9239))) * 0.01425;
+    color += texture2D(uVideo, clampUv(uv + ringC * vec2(-0.3827, 0.9239))) * 0.01425;
 
     return color;
   }
