@@ -64,9 +64,9 @@ body::before {
     radial-gradient(
       circle closest-side at 50% 50%,
       transparent 0 84%,
-      rgba(255, 255, 255, 0.2) 89%,
-      rgba(255, 255, 255, 0.72) 93%,
-      rgba(255, 255, 255, 0.34) 96%,
+      rgba(255, 255, 255, 0.28) 89%,
+      rgba(255, 255, 255, 0.86) 93%,
+      rgba(255, 255, 255, 0.42) 96%,
       transparent 100%
     );
   filter: blur(2px);
@@ -170,9 +170,9 @@ body.theme-on-light {
     radial-gradient(
       circle closest-side at 50% 50%,
       transparent 0 84%,
-      rgba(255, 255, 255, 0.18) 89%,
-      rgba(255, 255, 255, 0.48) 94%,
-      rgba(255, 255, 255, 0.18) 97%,
+      rgba(255, 255, 255, 0.24) 89%,
+      rgba(255, 255, 255, 0.6) 94%,
+      rgba(255, 255, 255, 0.24) 97%,
       transparent 100%
     );
   transition: opacity 180ms ease;
@@ -186,9 +186,9 @@ body.glow-enabled .glass-card {
     inset 0 0 14px rgba(255, 255, 255, 0.32),
     inset 10px 12px 24px rgba(255, 255, 255, 0.13);
   filter:
-    drop-shadow(0 0 4px rgba(255, 255, 255, 0.68))
-    drop-shadow(0 0 9px rgba(255, 255, 255, 0.34))
-    drop-shadow(0 0 14px rgba(255, 255, 255, 0.16));
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.82))
+    drop-shadow(0 0 9px rgba(255, 255, 255, 0.42))
+    drop-shadow(0 0 14px rgba(255, 255, 255, 0.22));
 }
 
 body.glow-enabled .glass-card::before {
