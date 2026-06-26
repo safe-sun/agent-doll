@@ -11,6 +11,7 @@ const screenVideo = document.querySelector("#screenVideo");
 const expandedDisplacementMap = createDisplacementMapImage("frosted");
 const compactDisplacementMap = createDisplacementMapImage("frostedCompact");
 const CAPTURE_FRAME_RATE = 60;
+const CAPTURE_CURSOR_MODE = "never";
 const GLASS_RENDER_FPS = 60;
 const GLASS_RENDER_INTERVAL_MS = 1000 / GLASS_RENDER_FPS;
 const MAX_RENDER_SCALE = 1;
@@ -626,10 +627,13 @@ async function syncCaptureGeometry() {
 }
 
 async function requestScreenStream() {
+  let stream = null;
+
   try {
-    return await navigator.mediaDevices.getDisplayMedia({
+    stream = await navigator.mediaDevices.getDisplayMedia({
       audio: false,
       video: {
+        cursor: CAPTURE_CURSOR_MODE,
         frameRate: { ideal: CAPTURE_FRAME_RATE, max: CAPTURE_FRAME_RATE },
       },
     });
@@ -645,9 +649,10 @@ async function requestScreenStream() {
       throw displayMediaError;
     }
 
-    return navigator.mediaDevices.getUserMedia({
+    stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: {
+        cursor: CAPTURE_CURSOR_MODE,
         mandatory: {
           chromeMediaSource: "desktop",
           chromeMediaSourceId: source.id,
@@ -656,6 +661,32 @@ async function requestScreenStream() {
         },
       },
     });
+  }
+
+  await applyCaptureCursorMode(stream);
+  return stream;
+}
+
+async function applyCaptureCursorMode(stream) {
+  const [track] = stream.getVideoTracks();
+
+  if (!track?.applyConstraints) {
+    return;
+  }
+
+  try {
+    const capabilities = track.getCapabilities?.();
+
+    if (
+      Array.isArray(capabilities?.cursor) &&
+      !capabilities.cursor.includes(CAPTURE_CURSOR_MODE)
+    ) {
+      return;
+    }
+
+    await track.applyConstraints({ cursor: CAPTURE_CURSOR_MODE });
+  } catch (error) {
+    console.warn("Screen capture cursor exclusion is unavailable.", error);
   }
 }
 
