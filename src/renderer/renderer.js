@@ -7,43 +7,87 @@ const todayInput = document.querySelector("#todayInput");
 const todayOutput = document.querySelector("#todayOutput");
 const screenSample = document.querySelector("#screenSample");
 const screenCanvas = document.querySelector("#screenCanvas");
-const screenContext = screenCanvas.getContext("2d", {
-  alpha: false,
-  willReadFrequently: true,
-});
 const screenVideo = document.querySelector("#screenVideo");
-const screenSourceCanvas = document.createElement("canvas");
-const screenSourceContext = screenSourceCanvas.getContext("2d", {
-  alpha: false,
-});
-const screenBlurCanvas = document.createElement("canvas");
-const screenBlurContext = screenBlurCanvas.getContext("2d", {
-  alpha: false,
-  willReadFrequently: true,
-});
-const displacementMapCanvas = document.createElement("canvas");
-const displacementMapContext = displacementMapCanvas.getContext("2d", {
-  alpha: false,
-  willReadFrequently: true,
-});
 const expandedDisplacementMap = createDisplacementMapImage("frosted");
 const compactDisplacementMap = createDisplacementMapImage("frostedCompact");
-const CAPTURE_FRAME_RATE = 20;
-const GLASS_RENDER_FPS = 20;
+const CAPTURE_FRAME_RATE = 60;
+const GLASS_RENDER_FPS = 60;
 const GLASS_RENDER_INTERVAL_MS = 1000 / GLASS_RENDER_FPS;
 const MAX_RENDER_SCALE = 1;
 const GLASS_RENDER = {
   expanded: {
     blurRadius: 13,
     displacement: 9,
-    overscan: 34,
   },
   compact: {
     blurRadius: 9,
     displacement: 7,
-    overscan: 24,
   },
 };
+const GLASS_VERTEX_SHADER = `
+  attribute vec2 aPosition;
+  attribute vec2 aUv;
+  varying vec2 vUv;
+
+  void main() {
+    gl_Position = vec4(aPosition, 0.0, 1.0);
+    vUv = aUv;
+  }
+`;
+const GLASS_FRAGMENT_SHADER = `
+  precision mediump float;
+
+  uniform sampler2D uVideo;
+  uniform sampler2D uMap;
+  uniform vec4 uSourceRect;
+  uniform vec2 uDisplaySize;
+  uniform float uBlurRadius;
+  uniform float uDisplacement;
+  varying vec2 vUv;
+
+  vec2 clampUv(vec2 uv) {
+    return clamp(uv, vec2(0.001), vec2(0.999));
+  }
+
+  vec4 sampleBlur(vec2 uv) {
+    vec2 radius = vec2(uBlurRadius) / uDisplaySize;
+    vec2 radiusA = radius * 0.45;
+    vec2 radiusB = radius * 0.32;
+    vec2 radiusC = radius * 0.85;
+    vec4 color = texture2D(uVideo, clampUv(uv)) * 0.18;
+
+    color += texture2D(uVideo, clampUv(uv + vec2(radiusA.x, 0.0))) * 0.12;
+    color += texture2D(uVideo, clampUv(uv - vec2(radiusA.x, 0.0))) * 0.12;
+    color += texture2D(uVideo, clampUv(uv + vec2(0.0, radiusA.y))) * 0.12;
+    color += texture2D(uVideo, clampUv(uv - vec2(0.0, radiusA.y))) * 0.12;
+
+    color += texture2D(uVideo, clampUv(uv + radiusB)) * 0.07;
+    color += texture2D(uVideo, clampUv(uv - radiusB)) * 0.07;
+    color += texture2D(uVideo, clampUv(uv + vec2(radiusB.x, -radiusB.y))) * 0.07;
+    color += texture2D(uVideo, clampUv(uv + vec2(-radiusB.x, radiusB.y))) * 0.07;
+
+    color += texture2D(uVideo, clampUv(uv + vec2(radiusC.x, 0.0))) * 0.015;
+    color += texture2D(uVideo, clampUv(uv - vec2(radiusC.x, 0.0))) * 0.015;
+    color += texture2D(uVideo, clampUv(uv + vec2(0.0, radiusC.y))) * 0.015;
+    color += texture2D(uVideo, clampUv(uv - vec2(0.0, radiusC.y))) * 0.015;
+
+    return color;
+  }
+
+  void main() {
+    vec2 mapValue = texture2D(uMap, vUv).rg;
+    vec2 displacement =
+      ((mapValue - vec2(0.5)) * 2.0 * uDisplacement) / uDisplaySize;
+    vec2 videoUv = uSourceRect.xy + vUv * uSourceRect.zw + displacement;
+    vec4 color = sampleBlur(videoUv);
+
+    gl_FragColor = vec4(color.rgb, 1.0);
+  }
+`;
+const glassRenderer = createGlassRenderer();
+const fallbackScreenContext = glassRenderer
+  ? null
+  : screenCanvas.getContext("2d", { alpha: false });
 let dragging = false;
 let activePointerId = null;
 let captureStream = null;
@@ -53,11 +97,6 @@ let captureGeometry = null;
 let sampleFrameCallbackId = null;
 let sampleFrameCallbackType = null;
 let lastSampleRenderAt = 0;
-let displacementMapCacheKey = "";
-let displacementMapData = null;
-let outputImageData = null;
-let outputImageDataCacheKey = "";
-let sampleReadbackFailed = false;
 
 function percentText(value) {
   if (!Number.isFinite(value)) {
@@ -123,7 +162,147 @@ function createDisplacementMapImage(filterId) {
   const image = new Image();
   const map = document.querySelector(`#${filterId} feImage`);
   image.src = map?.getAttribute("href") || "";
+  image.addEventListener("load", () => {
+    glassRenderer?.invalidateMap();
+  });
   return image;
+}
+
+function createShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const error = gl.getShaderInfoLog(shader);
+    gl.deleteShader(shader);
+    throw new Error(error || "Failed to compile WebGL shader.");
+  }
+
+  return shader;
+}
+
+function createProgram(gl, vertexSource, fragmentSource) {
+  const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
+  const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+  const program = gl.createProgram();
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  gl.deleteShader(vertexShader);
+  gl.deleteShader(fragmentShader);
+
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    const error = gl.getProgramInfoLog(program);
+    gl.deleteProgram(program);
+    throw new Error(error || "Failed to link WebGL program.");
+  }
+
+  return program;
+}
+
+function createTexture(gl) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  return texture;
+}
+
+function createGlassRenderer() {
+  const gl = screenCanvas.getContext("webgl", {
+    alpha: false,
+    antialias: false,
+    depth: false,
+    preserveDrawingBuffer: false,
+    premultipliedAlpha: false,
+    stencil: false,
+  });
+
+  if (!gl) {
+    console.warn("WebGL is unavailable; falling back to canvas blur.");
+    return null;
+  }
+
+  try {
+    const program = createProgram(
+      gl,
+      GLASS_VERTEX_SHADER,
+      GLASS_FRAGMENT_SHADER,
+    );
+    const vertices = new Float32Array([
+      -1, -1, 0, 1,
+      1, -1, 1, 1,
+      -1, 1, 0, 0,
+      1, 1, 1, 0,
+    ]);
+    const buffer = gl.createBuffer();
+    const positionLocation = gl.getAttribLocation(program, "aPosition");
+    const uvLocation = gl.getAttribLocation(program, "aUv");
+    const uniforms = {
+      blurRadius: gl.getUniformLocation(program, "uBlurRadius"),
+      displacement: gl.getUniformLocation(program, "uDisplacement"),
+      displaySize: gl.getUniformLocation(program, "uDisplaySize"),
+      map: gl.getUniformLocation(program, "uMap"),
+      sourceRect: gl.getUniformLocation(program, "uSourceRect"),
+      video: gl.getUniformLocation(program, "uVideo"),
+    };
+    const videoTexture = createTexture(gl);
+    const mapTexture = createTexture(gl);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+    gl.useProgram(program);
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 16, 0);
+    gl.enableVertexAttribArray(uvLocation);
+    gl.vertexAttribPointer(uvLocation, 2, gl.FLOAT, false, 16, 8);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, videoTexture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      1,
+      1,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 0, 255]),
+    );
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, mapTexture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      1,
+      1,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array([128, 128, 128, 255]),
+    );
+    gl.uniform1i(uniforms.video, 0);
+    gl.uniform1i(uniforms.map, 1);
+
+    return {
+      gl,
+      invalidateMap() {
+        this.mapKey = "";
+      },
+      mapKey: "",
+      mapTexture,
+      program,
+      uniforms,
+      videoTexture,
+    };
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
 }
 
 function setCaptureReady(isReady) {
@@ -151,57 +330,6 @@ function stopCaptureStream() {
   stopScreenSampleRendering();
 }
 
-function resizeScreenCanvas() {
-  const sampleRect = screenSample.getBoundingClientRect();
-  const settings = getGlassRenderSettings();
-  const scale = Math.max(
-    1,
-    Math.min(
-      MAX_RENDER_SCALE,
-      Math.ceil(window.devicePixelRatio || captureGeometry?.scaleFactor || 1),
-    ),
-  );
-  const width = Math.max(1, Math.round(sampleRect.width * scale));
-  const height = Math.max(1, Math.round(sampleRect.height * scale));
-  const overscanPixels = Math.max(1, Math.round(settings.overscan * scale));
-  const bufferWidth = width + overscanPixels * 2;
-  const bufferHeight = height + overscanPixels * 2;
-
-  if (screenCanvas.width !== width || screenCanvas.height !== height) {
-    screenCanvas.width = width;
-    screenCanvas.height = height;
-    displacementMapCacheKey = "";
-    outputImageDataCacheKey = "";
-  }
-
-  if (
-    screenSourceCanvas.width !== bufferWidth ||
-    screenSourceCanvas.height !== bufferHeight
-  ) {
-    screenSourceCanvas.width = bufferWidth;
-    screenSourceCanvas.height = bufferHeight;
-  }
-
-  if (
-    screenBlurCanvas.width !== bufferWidth ||
-    screenBlurCanvas.height !== bufferHeight
-  ) {
-    screenBlurCanvas.width = bufferWidth;
-    screenBlurCanvas.height = bufferHeight;
-  }
-
-  return {
-    bufferHeight,
-    bufferWidth,
-    height,
-    overscanPixels,
-    sampleRect,
-    scale,
-    settings,
-    width,
-  };
-}
-
 function getGlassRenderSettings() {
   return document.body.classList.contains("is-collapsed")
     ? GLASS_RENDER.compact
@@ -214,202 +342,152 @@ function getActiveDisplacementMap() {
     : expandedDisplacementMap;
 }
 
-function updateDisplacementMap(metrics) {
-  const image = getActiveDisplacementMap();
+function resizeScreenCanvas() {
+  const sampleRect = screenSample.getBoundingClientRect();
+  const scale = Math.max(
+    1,
+    Math.min(
+      MAX_RENDER_SCALE,
+      Math.ceil(window.devicePixelRatio || captureGeometry?.scaleFactor || 1),
+    ),
+  );
+  const width = Math.max(1, Math.round(sampleRect.width * scale));
+  const height = Math.max(1, Math.round(sampleRect.height * scale));
 
-  if (!image.complete || !image.naturalWidth) {
-    return false;
+  if (screenCanvas.width !== width || screenCanvas.height !== height) {
+    screenCanvas.width = width;
+    screenCanvas.height = height;
   }
 
-  const mode = document.body.classList.contains("is-collapsed")
-    ? "compact"
-    : "expanded";
-  const cacheKey = `${mode}:${metrics.width}x${metrics.height}`;
-
-  if (displacementMapCacheKey === cacheKey) {
-    return true;
-  }
-
-  displacementMapCanvas.width = metrics.width;
-  displacementMapCanvas.height = metrics.height;
-  displacementMapContext.imageSmoothingEnabled = true;
-  displacementMapContext.clearRect(0, 0, metrics.width, metrics.height);
-  displacementMapContext.drawImage(
-    image,
-    0,
-    0,
-    metrics.width,
-    metrics.height,
-  );
-  displacementMapData = displacementMapContext.getImageData(
-    0,
-    0,
-    metrics.width,
-    metrics.height,
-  );
-  displacementMapCacheKey = cacheKey;
-  return true;
+  return {
+    height,
+    sampleRect,
+    scale,
+    settings: getGlassRenderSettings(),
+    width,
+  };
 }
 
-function drawScreenVideoToSourceCanvas(metrics) {
+function getVideoSource(metrics) {
   const display = captureGeometry.display;
   const windowBounds = captureGeometry.window;
   const sourceScaleX = screenVideo.videoWidth / display.width;
   const sourceScaleY = screenVideo.videoHeight / display.height;
-  const cssSourceX =
-    windowBounds.x +
-    metrics.sampleRect.left -
-    display.x -
-    metrics.settings.overscan;
-  const cssSourceY =
-    windowBounds.y +
-    metrics.sampleRect.top -
-    display.y -
-    metrics.settings.overscan;
-  const sourceX = cssSourceX * sourceScaleX;
-  const sourceY = cssSourceY * sourceScaleY;
-  const sourceWidth =
-    (metrics.sampleRect.width + metrics.settings.overscan * 2) *
-    sourceScaleX;
-  const sourceHeight =
-    (metrics.sampleRect.height + metrics.settings.overscan * 2) *
-    sourceScaleY;
-  const clampedX = Math.max(0, Math.min(screenVideo.videoWidth - 1, sourceX));
-  const clampedY = Math.max(0, Math.min(screenVideo.videoHeight - 1, sourceY));
-  const clampedWidth = Math.max(
-    1,
-    Math.min(screenVideo.videoWidth - clampedX, sourceWidth),
-  );
-  const clampedHeight = Math.max(
-    1,
-    Math.min(screenVideo.videoHeight - clampedY, sourceHeight),
-  );
-  const destinationX = Math.max(
-    0,
-    Math.round(((clampedX - sourceX) / sourceScaleX) * metrics.scale),
-  );
-  const destinationY = Math.max(
-    0,
-    Math.round(((clampedY - sourceY) / sourceScaleY) * metrics.scale),
-  );
-  const destinationWidth = Math.max(
-    1,
-    Math.round((clampedWidth / sourceScaleX) * metrics.scale),
-  );
-  const destinationHeight = Math.max(
-    1,
-    Math.round((clampedHeight / sourceScaleY) * metrics.scale),
-  );
+  const sourceX =
+    (windowBounds.x + metrics.sampleRect.left - display.x) * sourceScaleX;
+  const sourceY =
+    (windowBounds.y + metrics.sampleRect.top - display.y) * sourceScaleY;
+  const sourceWidth = metrics.sampleRect.width * sourceScaleX;
+  const sourceHeight = metrics.sampleRect.height * sourceScaleY;
 
-  screenSourceContext.imageSmoothingEnabled = true;
-  screenSourceContext.clearRect(
-    0,
-    0,
-    metrics.bufferWidth,
-    metrics.bufferHeight,
-  );
-  screenSourceContext.drawImage(
-    screenVideo,
-    clampedX,
-    clampedY,
-    clampedWidth,
-    clampedHeight,
-    destinationX,
-    destinationY,
-    destinationWidth,
-    destinationHeight,
-  );
+  return {
+    height: Math.max(1, sourceHeight),
+    normalized: [
+      sourceX / screenVideo.videoWidth,
+      sourceY / screenVideo.videoHeight,
+      sourceWidth / screenVideo.videoWidth,
+      sourceHeight / screenVideo.videoHeight,
+    ],
+    width: Math.max(1, sourceWidth),
+    x: Math.max(0, Math.min(screenVideo.videoWidth - 1, sourceX)),
+    y: Math.max(0, Math.min(screenVideo.videoHeight - 1, sourceY)),
+  };
 }
 
-function drawBlurredSample(metrics) {
-  screenContext.drawImage(
-    screenBlurCanvas,
-    metrics.overscanPixels,
-    metrics.overscanPixels,
-    metrics.width,
-    metrics.height,
-    0,
-    0,
-    metrics.width,
-    metrics.height,
-  );
-}
+function updateMapTexture(renderer) {
+  const image = getActiveDisplacementMap();
+  const mode = document.body.classList.contains("is-collapsed")
+    ? "compact"
+    : "expanded";
 
-function drawDisplacedSample(metrics) {
-  if (!updateDisplacementMap(metrics) || !displacementMapData) {
-    drawBlurredSample(metrics);
+  if (renderer.mapKey === mode || !image.complete || !image.naturalWidth) {
     return;
   }
 
-  try {
-    const source = screenBlurContext.getImageData(
-      0,
-      0,
-      metrics.bufferWidth,
-      metrics.bufferHeight,
-    );
-    const map = displacementMapData;
-    const outputKey = `${metrics.width}x${metrics.height}`;
+  const gl = renderer.gl;
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, renderer.mapTexture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    image,
+  );
+  renderer.mapKey = mode;
+}
 
-    if (!outputImageData || outputImageDataCacheKey !== outputKey) {
-      outputImageData = screenContext.createImageData(
-        metrics.width,
-        metrics.height,
-      );
-      outputImageDataCacheKey = outputKey;
-    }
+function renderGlassWithWebGL(metrics) {
+  const renderer = glassRenderer;
 
-    const output = outputImageData;
-    const sourceData = source.data;
-    const mapData = map.data;
-    const outputData = output.data;
-    const width = metrics.width;
-    const height = metrics.height;
-    const bufferWidth = metrics.bufferWidth;
-    const bufferHeight = metrics.bufferHeight;
-    const overscanPixels = metrics.overscanPixels;
-    const displacement = metrics.settings.displacement * metrics.scale;
-
-    for (let y = 0; y < height; y += 1) {
-      const rowOffset = y * width;
-      for (let x = 0; x < width; x += 1) {
-        const targetIndex = (rowOffset + x) * 4;
-        const dx = ((mapData[targetIndex] - 128) / 127) * displacement;
-        const dy = ((mapData[targetIndex + 1] - 128) / 127) * displacement;
-        let sourceX = Math.round(x + overscanPixels + dx);
-        let sourceY = Math.round(y + overscanPixels + dy);
-
-        if (sourceX < 0) {
-          sourceX = 0;
-        } else if (sourceX >= bufferWidth) {
-          sourceX = bufferWidth - 1;
-        }
-
-        if (sourceY < 0) {
-          sourceY = 0;
-        } else if (sourceY >= bufferHeight) {
-          sourceY = bufferHeight - 1;
-        }
-
-        const sourceIndex = (sourceY * bufferWidth + sourceX) * 4;
-
-        outputData[targetIndex] = sourceData[sourceIndex];
-        outputData[targetIndex + 1] = sourceData[sourceIndex + 1];
-        outputData[targetIndex + 2] = sourceData[sourceIndex + 2];
-        outputData[targetIndex + 3] = 255;
-      }
-    }
-
-    screenContext.putImageData(output, 0, 0);
-    sampleReadbackFailed = false;
-  } catch (error) {
-    if (!sampleReadbackFailed) {
-      console.warn("Falling back to blur-only glass rendering.", error);
-      sampleReadbackFailed = true;
-    }
-
-    drawBlurredSample(metrics);
+  if (!renderer) {
+    return false;
   }
+
+  const gl = renderer.gl;
+  const source = getVideoSource(metrics);
+
+  try {
+    gl.viewport(0, 0, metrics.width, metrics.height);
+    gl.useProgram(renderer.program);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, renderer.videoTexture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      screenVideo,
+    );
+    updateMapTexture(renderer);
+    gl.uniform4fv(renderer.uniforms.sourceRect, source.normalized);
+    gl.uniform2f(
+      renderer.uniforms.displaySize,
+      captureGeometry.display.width,
+      captureGeometry.display.height,
+    );
+    gl.uniform1f(
+      renderer.uniforms.blurRadius,
+      metrics.settings.blurRadius * metrics.scale,
+    );
+    gl.uniform1f(
+      renderer.uniforms.displacement,
+      metrics.settings.displacement * metrics.scale,
+    );
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    return true;
+  } catch (error) {
+    console.warn("Falling back to canvas blur.", error);
+    return false;
+  }
+}
+
+function renderGlassWithCanvas(metrics) {
+  if (!fallbackScreenContext) {
+    return;
+  }
+
+  const source = getVideoSource(metrics);
+  fallbackScreenContext.clearRect(0, 0, metrics.width, metrics.height);
+  fallbackScreenContext.filter = `blur(${
+    metrics.settings.blurRadius * metrics.scale
+  }px)`;
+  fallbackScreenContext.drawImage(
+    screenVideo,
+    source.x,
+    source.y,
+    source.width,
+    source.height,
+    0,
+    0,
+    metrics.width,
+    metrics.height,
+  );
+  fallbackScreenContext.filter = "none";
 }
 
 function drawScreenSampleFrame() {
@@ -435,20 +513,9 @@ function drawScreenSampleFrame() {
     return;
   }
 
-  drawScreenVideoToSourceCanvas(metrics);
-
-  screenBlurContext.clearRect(
-    0,
-    0,
-    metrics.bufferWidth,
-    metrics.bufferHeight,
-  );
-  screenBlurContext.filter = `blur(${
-    metrics.settings.blurRadius * metrics.scale
-  }px)`;
-  screenBlurContext.drawImage(screenSourceCanvas, 0, 0);
-  screenBlurContext.filter = "none";
-  drawDisplacedSample(metrics);
+  if (!renderGlassWithWebGL(metrics)) {
+    renderGlassWithCanvas(metrics);
+  }
 }
 
 function scheduleScreenSampleFrame() {
@@ -521,19 +588,19 @@ function stopScreenSampleRendering() {
     sampleFrameCallbackType = null;
   }
 
-  screenContext.clearRect(0, 0, screenCanvas.width, screenCanvas.height);
-  screenSourceContext.clearRect(
-    0,
-    0,
-    screenSourceCanvas.width,
-    screenSourceCanvas.height,
-  );
-  screenBlurContext.clearRect(
-    0,
-    0,
-    screenBlurCanvas.width,
-    screenBlurCanvas.height,
-  );
+  if (glassRenderer) {
+    const gl = glassRenderer.gl;
+    gl.viewport(0, 0, screenCanvas.width, screenCanvas.height);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  } else {
+    fallbackScreenContext?.clearRect(
+      0,
+      0,
+      screenCanvas.width,
+      screenCanvas.height,
+    );
+  }
 }
 
 function applyCaptureGeometry(geometry) {
@@ -584,7 +651,7 @@ async function requestScreenStream() {
         mandatory: {
           chromeMediaSource: "desktop",
           chromeMediaSourceId: source.id,
-          minFrameRate: 10,
+          minFrameRate: 30,
           maxFrameRate: CAPTURE_FRAME_RATE,
         },
       },
@@ -655,6 +722,7 @@ async function refreshUsage() {
 window.codexPet.onRefreshRequest(refreshUsage);
 window.codexPet.onCollapsedChange((value) => {
   document.body.classList.toggle("is-collapsed", Boolean(value));
+  glassRenderer?.invalidateMap();
   syncCaptureGeometry();
 });
 window.codexPet.onGlassCaptureGeometry((geometry) => {
@@ -717,6 +785,7 @@ window.addEventListener("beforeunload", () => {
 async function syncWindowState() {
   const collapsed = await window.codexPet.isCollapsed();
   document.body.classList.toggle("is-collapsed", Boolean(collapsed));
+  glassRenderer?.invalidateMap();
 }
 
 syncWindowState();

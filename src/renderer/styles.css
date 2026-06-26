@@ -283,10 +283,6 @@ body.is-collapsed .screen-sample {
   clip-path: inset(0 round 19px);
 }
 
-body.is-collapsed .screen-distortion {
-  filter: url("#frostedCompact");
-}
-
 body.is-collapsed .quota-row {
   display: block;
   min-width: 0;
