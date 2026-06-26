@@ -6,6 +6,10 @@ const { spawn } = require("node:child_process");
 const MAX_SESSION_FILES = 120;
 const READ_TAIL_BYTES = 1024 * 1024;
 const APP_SERVER_TIMEOUT_MS = 8000;
+const USAGE_CACHE_TTL_MS = 75_000;
+
+let cachedUsage = null;
+let pendingUsageRead = null;
 
 function codexHome() {
   return process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
@@ -386,7 +390,7 @@ async function readTodayTokenUsage() {
   return total;
 }
 
-async function readCodexUsage() {
+async function readCodexUsageFresh() {
   const [usage, todayTokenUsage] = await Promise.all([
     readLatestRateLimit(),
     readTodayTokenUsage(),
@@ -398,6 +402,43 @@ async function readCodexUsage() {
     codexHome: codexHome(),
     readAt: new Date().toISOString(),
   };
+}
+
+async function readCodexUsage(options = {}) {
+  const force = Boolean(options?.force);
+  const now = Date.now();
+
+  if (
+    !force &&
+    cachedUsage &&
+    now - cachedUsage.cachedAt < USAGE_CACHE_TTL_MS
+  ) {
+    return {
+      ...cachedUsage.value,
+      readAt: new Date().toISOString(),
+    };
+  }
+
+  if (!force && pendingUsageRead) {
+    return pendingUsageRead;
+  }
+
+  const readPromise = readCodexUsageFresh()
+    .then((usage) => {
+      cachedUsage = {
+        cachedAt: Date.now(),
+        value: usage,
+      };
+      return usage;
+    })
+    .finally(() => {
+      if (pendingUsageRead === readPromise) {
+        pendingUsageRead = null;
+      }
+    });
+
+  pendingUsageRead = readPromise;
+  return readPromise;
 }
 
 module.exports = {

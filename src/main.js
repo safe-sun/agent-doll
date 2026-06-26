@@ -22,6 +22,7 @@ const COLLAPSED_SIZE = { width: 84, height: 84 };
 const EDGE_THRESHOLD = 18;
 const CAPTURE_GEOMETRY_INTERVAL_MS = 80;
 let lastCaptureGeometrySentAt = 0;
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
 function createCircleShape(size) {
   const diameter = Math.min(size.width, size.height);
@@ -334,7 +335,8 @@ function createContextMenu() {
   return Menu.buildFromTemplate([
     {
       label: "刷新用量",
-      click: () => mainWindow?.webContents.send("codex-usage:refresh"),
+      click: () =>
+        mainWindow?.webContents.send("codex-usage:refresh", { force: true }),
     },
     {
       label: alwaysOnTop ? "取消置顶" : "保持置顶",
@@ -380,17 +382,34 @@ function setAlwaysOnTop(value) {
   return alwaysOnTop;
 }
 
-app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
-  configureDisplayCapture();
-  createWindow();
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
     }
+
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+
+    mainWindow.show();
+    mainWindow.moveTop();
   });
-});
+
+  app.whenReady().then(() => {
+    Menu.setApplicationMenu(null);
+    configureDisplayCapture();
+    createWindow();
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
+  });
+}
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
@@ -398,7 +417,9 @@ app.on("window-all-closed", () => {
   }
 });
 
-ipcMain.handle("codex-usage:read", async () => readCodexUsage());
+ipcMain.handle("codex-usage:read", async (_event, options) =>
+  readCodexUsage(options),
+);
 
 ipcMain.handle("window:toggle-top", () => {
   return setAlwaysOnTop(!alwaysOnTop);

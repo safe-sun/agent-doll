@@ -1,9 +1,9 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("codexPet", {
-  readUsage: () => ipcRenderer.invoke("codex-usage:read"),
+  readUsage: (options) => ipcRenderer.invoke("codex-usage:read", options),
   onRefreshRequest: (callback) => {
-    const listener = () => callback();
+    const listener = (_event, options) => callback(options);
     ipcRenderer.on("codex-usage:refresh", listener);
     return () => ipcRenderer.removeListener("codex-usage:refresh", listener);
   },

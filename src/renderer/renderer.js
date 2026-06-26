@@ -956,9 +956,9 @@ async function startGlassCapture(force = false) {
   }
 }
 
-async function refreshUsage() {
+async function refreshUsage(options = {}) {
   try {
-    const usage = await window.codexPet.readUsage();
+    const usage = await window.codexPet.readUsage(options);
     renderUsage(usage);
   } catch (error) {
     renderUsage({
@@ -969,7 +969,7 @@ async function refreshUsage() {
   }
 }
 
-window.codexPet.onRefreshRequest(refreshUsage);
+window.codexPet.onRefreshRequest((options) => refreshUsage(options));
 window.codexPet.onCollapsedChange((value) => {
   document.body.classList.toggle("is-collapsed", Boolean(value));
   glassRenderer?.invalidateMap();
