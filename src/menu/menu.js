@@ -27,11 +27,7 @@ const contextMenuActions = {
   },
 };
 
-window.codexPet.onContextMenuOpen((state) => renderContextMenu(state));
-
-async function syncContextMenu() {
-  renderContextMenu(await window.codexPet.getContextMenuState());
-}
+window.renderContextMenuForState = (state) => renderContextMenu(state);
 
 function renderContextMenu(state) {
   const items = [
@@ -108,5 +104,3 @@ window.addEventListener("keydown", async (event) => {
     await window.codexPet.closeContextMenu();
   }
 });
-
-syncContextMenu();

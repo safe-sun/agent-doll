@@ -230,6 +230,7 @@ async function showContextMenuWindow(point = {}) {
   const cursor = screen.getCursorScreenPoint();
   const x = Number.isFinite(point.x) ? Math.round(point.x) : cursor.x;
   const y = Number.isFinite(point.y) ? Math.round(point.y) : cursor.y;
+  const wasVisible = menuWindow.isVisible();
 
   menuWindow.setBounds(
     {
@@ -243,18 +244,25 @@ async function showContextMenuWindow(point = {}) {
 
   try {
     await contextMenuReady;
+
+    if (!contextMenuWindow || contextMenuWindow.isDestroyed()) {
+      return;
+    }
+
+    const renderScript = `window.renderContextMenuForState(${JSON.stringify(
+      getContextMenuState(),
+    )})`;
+    await contextMenuWindow.webContents.executeJavaScript(renderScript);
   } catch (error) {
     console.error(error);
     return;
   }
 
-  if (!contextMenuWindow || contextMenuWindow.isDestroyed()) {
-    return;
+  if (!wasVisible) {
+    contextMenuWindow.show();
   }
 
-  contextMenuWindow.show();
   contextMenuWindow.focus();
-  contextMenuWindow.webContents.send("context-menu:open", getContextMenuState());
 }
 
 function hideContextMenuWindow() {
@@ -484,8 +492,6 @@ ipcMain.handle("context-menu:show", (_event, point) => {
 ipcMain.handle("context-menu:close", () => {
   hideContextMenuWindow();
 });
-
-ipcMain.handle("context-menu:state", () => getContextMenuState());
 
 ipcMain.handle("window:toggle-collapsed", () => {
   return setCollapsed(!collapsed);
