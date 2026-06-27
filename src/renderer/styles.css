@@ -533,16 +533,16 @@ body.is-collapsed .quota-block span {
   top: 1px;
   right: 0;
   left: 0;
-  font-size: 8px;
+  font-size: 10px;
   line-height: 1;
   text-align: center;
 }
 
 body.is-collapsed .quota-block strong {
-  top: 50%;
+  top: 60%;
   right: 0;
   left: 0;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
   text-align: center;
   transform: translateY(-50%);
