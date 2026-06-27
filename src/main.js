@@ -26,8 +26,8 @@ const EXPANDED_SIZE = {
   height: 150 + WINDOW_GLOW_MARGIN * 2,
 };
 const COLLAPSED_SIZE = {
-  width: 84 + WINDOW_GLOW_MARGIN * 2,
-  height: 84 + WINDOW_GLOW_MARGIN * 2,
+  width: 50 + WINDOW_GLOW_MARGIN * 2,
+  height: 50 + WINDOW_GLOW_MARGIN * 2,
 };
 const CONTEXT_MENU_SIZE = {
   width: 136,
@@ -333,19 +333,27 @@ function clampBoundsToWorkArea(bounds, size, workArea) {
 function getNearestEdge(bounds) {
   const workArea = getDisplayForBounds(bounds);
   const distances = [
-    { edge: "left", value: Math.abs(bounds.x - workArea.x) },
+    { edge: "left", value: bounds.x - workArea.x },
     {
       edge: "right",
-      value: Math.abs(workArea.x + workArea.width - (bounds.x + bounds.width)),
+      value: workArea.x + workArea.width - (bounds.x + bounds.width),
     },
-    { edge: "top", value: Math.abs(bounds.y - workArea.y) },
+    { edge: "top", value: bounds.y - workArea.y },
     {
       edge: "bottom",
-      value: Math.abs(workArea.y + workArea.height - (bounds.y + bounds.height)),
+      value: workArea.y + workArea.height - (bounds.y + bounds.height),
     },
-  ].sort((a, b) => a.value - b.value);
+  ];
+  const crossedEdges = distances
+    .filter(({ value }) => value <= 0)
+    .sort((a, b) => Math.abs(a.value) - Math.abs(b.value));
 
-  return distances[0].value <= EDGE_THRESHOLD ? distances[0].edge : null;
+  if (crossedEdges.length) {
+    return crossedEdges[0].edge;
+  }
+
+  const [nearestEdge] = distances.sort((a, b) => a.value - b.value);
+  return nearestEdge.value <= EDGE_THRESHOLD ? nearestEdge.edge : null;
 }
 
 function getBoundsForMode(nextCollapsed, edge = null) {
