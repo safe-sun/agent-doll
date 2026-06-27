@@ -225,22 +225,40 @@ function getContextMenuState() {
   };
 }
 
+function getContextMenuBounds(point) {
+  const cursor = screen.getCursorScreenPoint();
+  const source = point && typeof point === "object" ? point : {};
+  const anchor = {
+    x: Number.isFinite(source.x) ? Math.round(source.x) : cursor.x,
+    y: Number.isFinite(source.y) ? Math.round(source.y) : cursor.y,
+  };
+  const workArea = screen.getDisplayNearestPoint(anchor).workArea;
+  const menuRight = workArea.x + workArea.width;
+  const menuBottom = workArea.y + workArea.height;
+  const maxX = Math.max(workArea.x, menuRight - CONTEXT_MENU_SIZE.width);
+  const maxY = Math.max(workArea.y, menuBottom - CONTEXT_MENU_SIZE.height);
+  const x =
+    anchor.x + CONTEXT_MENU_SIZE.width <= menuRight
+      ? anchor.x
+      : anchor.x - CONTEXT_MENU_SIZE.width;
+  const y =
+    anchor.y + CONTEXT_MENU_SIZE.height <= menuBottom
+      ? anchor.y
+      : anchor.y - CONTEXT_MENU_SIZE.height;
+
+  return {
+    x: Math.min(Math.max(x, workArea.x), maxX),
+    y: Math.min(Math.max(y, workArea.y), maxY),
+    width: CONTEXT_MENU_SIZE.width,
+    height: CONTEXT_MENU_SIZE.height,
+  };
+}
+
 async function showContextMenuWindow(point = {}) {
   const menuWindow = createContextMenuWindow();
-  const cursor = screen.getCursorScreenPoint();
-  const x = Number.isFinite(point.x) ? Math.round(point.x) : cursor.x;
-  const y = Number.isFinite(point.y) ? Math.round(point.y) : cursor.y;
   const wasVisible = menuWindow.isVisible();
 
-  menuWindow.setBounds(
-    {
-      x,
-      y,
-      width: CONTEXT_MENU_SIZE.width,
-      height: CONTEXT_MENU_SIZE.height,
-    },
-    false,
-  );
+  menuWindow.setBounds(getContextMenuBounds(point), false);
 
   try {
     await contextMenuReady;
