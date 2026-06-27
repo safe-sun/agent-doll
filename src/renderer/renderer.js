@@ -15,7 +15,6 @@ const CAPTURE_CURSOR_MODE = "never";
 const GLASS_RENDER_FPS = 60;
 const GLASS_RENDER_INTERVAL_MS = 1000 / GLASS_RENDER_FPS;
 const MAX_RENDER_SCALE = 1;
-const PROGRESS_ARC_DEGREES = 360;
 const CONTRAST_SAMPLE_SIZE = 10;
 const CONTRAST_UPDATE_INTERVAL_MS = 240;
 const GLASS_RENDER = {
@@ -169,10 +168,8 @@ function setQuotaProgress(barEl, percent) {
 
   barEl.style.width = `${clamped}%`;
   meterEl?.setAttribute("data-quota-level", quotaLevel(clamped));
-  meterEl?.style.setProperty(
-    "--progress-angle",
-    `${(clamped / 100) * PROGRESS_ARC_DEGREES}deg`,
-  );
+  meterEl?.style.setProperty("--progress-offset", `${100 - clamped}`);
+  meterEl?.style.setProperty("--progress-opacity", clamped > 0 ? "1" : "0");
 }
 
 function quotaLevel(percent) {
