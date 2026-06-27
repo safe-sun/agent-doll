@@ -20,6 +20,9 @@ const METER_RADIUS = 12;
 const METER_START_ANGLE = -90;
 const CONTRAST_SAMPLE_SIZE = 10;
 const CONTRAST_UPDATE_INTERVAL_MS = 240;
+const FLAT_LIGHT_LUMINANCE = 0.86;
+const FLAT_LIGHT_LUMINANCE_RANGE = 0.12;
+const FLAT_LIGHT_LUMINANCE_DEVIATION = 0.035;
 const GLASS_RENDER = {
   expanded: {
     blurStdDeviation: 0.02,
@@ -119,6 +122,7 @@ let sampleFrameCallbackType = null;
 let lastSampleRenderAt = 0;
 let lastContrastUpdateAt = 0;
 let lastContrastTheme = "";
+let lastFlatLightBackground = false;
 
 function percentText(value) {
   if (!Number.isFinite(value)) {
@@ -736,30 +740,54 @@ function updateAdaptiveContrast(source) {
       CONTRAST_SAMPLE_SIZE,
       CONTRAST_SAMPLE_SIZE,
     ).data;
+    const luminanceSamples = [];
     let luminance = 0;
+    let minLuminance = 1;
+    let maxLuminance = 0;
 
     for (let index = 0; index < data.length; index += 4) {
-      luminance += getRelativeLuminance(
+      const pixelLuminance = getRelativeLuminance(
         data[index],
         data[index + 1],
         data[index + 2],
       );
+      luminanceSamples.push(pixelLuminance);
+      luminance += pixelLuminance;
+      minLuminance = Math.min(minLuminance, pixelLuminance);
+      maxLuminance = Math.max(maxLuminance, pixelLuminance);
     }
 
-    luminance /= data.length / 4;
+    luminance /= luminanceSamples.length;
+    const luminanceDeviation = Math.sqrt(
+      luminanceSamples.reduce(
+        (sum, value) => sum + (value - luminance) ** 2,
+        0,
+      ) / luminanceSamples.length,
+    );
+    const flatLightBackground =
+      luminance >= FLAT_LIGHT_LUMINANCE &&
+      maxLuminance - minLuminance <= FLAT_LIGHT_LUMINANCE_RANGE &&
+      luminanceDeviation <= FLAT_LIGHT_LUMINANCE_DEVIATION;
 
     const theme = luminance > 0.48 ? "theme-on-light" : "theme-on-dark";
-    if (theme === lastContrastTheme) {
-      return;
+    if (theme !== lastContrastTheme) {
+      document.body.classList.toggle("theme-on-light", theme === "theme-on-light");
+      document.body.classList.toggle("theme-on-dark", theme === "theme-on-dark");
+      lastContrastTheme = theme;
     }
 
-    document.body.classList.toggle("theme-on-light", theme === "theme-on-light");
-    document.body.classList.toggle("theme-on-dark", theme === "theme-on-dark");
-    lastContrastTheme = theme;
+    if (flatLightBackground !== lastFlatLightBackground) {
+      document.body.classList.toggle("is-flat-light", flatLightBackground);
+      lastFlatLightBackground = flatLightBackground;
+    }
   } catch (error) {
     if (!lastContrastTheme) {
       document.body.classList.add("theme-on-light");
       lastContrastTheme = "theme-on-light";
+    }
+    if (lastFlatLightBackground) {
+      document.body.classList.remove("is-flat-light");
+      lastFlatLightBackground = false;
     }
   }
 }
