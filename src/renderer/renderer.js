@@ -357,18 +357,8 @@ function createContextMenuSeparator() {
 }
 
 function positionContextMenu(clientX, clientY) {
-  const padding = 6;
-  const maxX = Math.max(
-    padding,
-    window.innerWidth - contextMenu.offsetWidth - padding,
-  );
-  const maxY = Math.max(
-    padding,
-    window.innerHeight - contextMenu.offsetHeight - padding,
-  );
-
-  contextMenu.style.left = `${Math.max(padding, Math.min(clientX, maxX))}px`;
-  contextMenu.style.top = `${Math.max(padding, Math.min(clientY, maxY))}px`;
+  contextMenu.style.left = `${clientX}px`;
+  contextMenu.style.top = `${clientY}px`;
 }
 
 function closeContextMenu() {
