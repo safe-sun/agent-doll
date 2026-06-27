@@ -9,7 +9,10 @@ contextBridge.exposeInMainWorld("codexPet", {
   },
   toggleAlwaysOnTop: () => ipcRenderer.invoke("window:toggle-top"),
   isAlwaysOnTop: () => ipcRenderer.invoke("window:is-top"),
-  showContextMenu: () => ipcRenderer.invoke("window:show-context-menu"),
+  toggleCollapsed: () => ipcRenderer.invoke("window:toggle-collapsed"),
+  toggleGlow: () => ipcRenderer.invoke("window:toggle-glow"),
+  toggleGlowBreathing: () =>
+    ipcRenderer.invoke("window:toggle-glow-breathing"),
   isCollapsed: () => ipcRenderer.invoke("window:is-collapsed"),
   isGlowEnabled: () => ipcRenderer.invoke("window:is-glow-enabled"),
   isGlowBreathing: () => ipcRenderer.invoke("window:is-glow-breathing"),
@@ -39,6 +42,7 @@ contextBridge.exposeInMainWorld("codexPet", {
   },
   dragStart: () => ipcRenderer.invoke("window:drag-start"),
   dragEnd: () => ipcRenderer.invoke("window:drag-end"),
+  reload: () => ipcRenderer.invoke("window:reload"),
   openCodexHome: () => ipcRenderer.invoke("window:open-codex-home"),
   quit: () => ipcRenderer.invoke("window:quit"),
 });

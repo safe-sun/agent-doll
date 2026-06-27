@@ -8,6 +8,7 @@ const todayOutput = document.querySelector("#todayOutput");
 const screenSample = document.querySelector("#screenSample");
 const screenCanvas = document.querySelector("#screenCanvas");
 const screenVideo = document.querySelector("#screenVideo");
+const contextMenu = document.querySelector("#contextMenu");
 const expandedDisplacementMap = createDisplacementMapImage("frosted");
 const compactDisplacementMap = createDisplacementMapImage("frostedCompact");
 const CAPTURE_FRAME_RATE = 60;
@@ -244,6 +245,134 @@ function renderUsage(usage) {
   updateQuota(usage.primary, primaryRemaining, primaryBar);
   updateQuota(usage.secondary, secondaryRemaining, secondaryBar);
   updateTodayTokens(usage);
+}
+
+const contextMenuActions = {
+  async refresh() {
+    await refreshUsage({ force: true });
+  },
+  async toggleTop() {
+    await window.codexPet.toggleAlwaysOnTop();
+  },
+  async toggleCollapsed() {
+    await window.codexPet.toggleCollapsed();
+  },
+  async toggleGlow() {
+    await window.codexPet.toggleGlow();
+  },
+  async toggleGlowBreathing() {
+    await window.codexPet.toggleGlowBreathing();
+  },
+  async openCodexHome() {
+    await window.codexPet.openCodexHome();
+  },
+  async reload() {
+    await window.codexPet.reload();
+  },
+  async quit() {
+    await window.codexPet.quit();
+  },
+};
+
+async function openContextMenu(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const state = await getContextMenuState();
+  renderContextMenu(state);
+  contextMenu.hidden = false;
+  positionContextMenu(event.clientX, event.clientY);
+}
+
+async function getContextMenuState() {
+  const [alwaysOnTop, collapsed, glowEnabled, glowBreathing] =
+    await Promise.all([
+      window.codexPet.isAlwaysOnTop(),
+      window.codexPet.isCollapsed(),
+      window.codexPet.isGlowEnabled(),
+      window.codexPet.isGlowBreathing(),
+    ]);
+
+  return {
+    alwaysOnTop,
+    collapsed,
+    glowBreathing,
+    glowEnabled,
+  };
+}
+
+function renderContextMenu(state) {
+  const items = [
+    { action: "refresh", label: "刷新" },
+    { action: "toggleTop", checked: state.alwaysOnTop, label: "置顶" },
+    {
+      action: "toggleCollapsed",
+      label: state.collapsed ? "展开" : "收起",
+    },
+    { action: "toggleGlow", checked: state.glowEnabled, label: "泛光" },
+    {
+      action: "toggleGlowBreathing",
+      checked: state.glowEnabled && state.glowBreathing,
+      disabled: !state.glowEnabled,
+      label: "呼吸",
+    },
+    { separator: true },
+    { action: "openCodexHome", label: "Codex目录" },
+    { action: "reload", label: "重载" },
+    { action: "quit", label: "退出" },
+  ];
+
+  contextMenu.replaceChildren(
+    ...items.map((item) => {
+      if (item.separator) {
+        return createContextMenuSeparator();
+      }
+
+      return createContextMenuItem(item);
+    }),
+  );
+}
+
+function createContextMenuItem(item) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "context-menu-item";
+  button.dataset.action = item.action;
+  button.textContent = item.label;
+  button.disabled = Boolean(item.disabled);
+
+  if (item.checked) {
+    button.classList.add("is-checked");
+    button.setAttribute("aria-checked", "true");
+  }
+
+  return button;
+}
+
+function createContextMenuSeparator() {
+  const separator = document.createElement("span");
+  separator.className = "context-menu-separator";
+  separator.setAttribute("role", "separator");
+  return separator;
+}
+
+function positionContextMenu(clientX, clientY) {
+  const padding = 6;
+  const maxX = Math.max(
+    padding,
+    window.innerWidth - contextMenu.offsetWidth - padding,
+  );
+  const maxY = Math.max(
+    padding,
+    window.innerHeight - contextMenu.offsetHeight - padding,
+  );
+
+  contextMenu.style.left = `${Math.max(padding, Math.min(clientX, maxX))}px`;
+  contextMenu.style.top = `${Math.max(padding, Math.min(clientY, maxY))}px`;
+}
+
+function closeContextMenu() {
+  contextMenu.hidden = true;
 }
 
 function createDisplacementMapImage(filterId) {
@@ -1049,8 +1178,7 @@ window.codexPet.onGlassCaptureGeometry((geometry) => {
   }
 });
 window.addEventListener("contextmenu", (event) => {
-  event.preventDefault();
-  window.codexPet.showContextMenu();
+  openContextMenu(event);
 });
 function finishDrag(event) {
   if (!dragging) {
@@ -1074,6 +1202,12 @@ function finishDrag(event) {
 }
 
 window.addEventListener("pointerdown", (event) => {
+  if (event.target.closest(".context-menu")) {
+    return;
+  }
+
+  closeContextMenu();
+
   if (event.button !== 0) {
     return;
   }
@@ -1090,9 +1224,33 @@ window.addEventListener("pointercancel", finishDrag);
 window.addEventListener("mouseup", finishDrag);
 window.addEventListener("blur", () => {
   finishDrag();
+  closeContextMenu();
+});
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeContextMenu();
+  }
 });
 window.addEventListener("beforeunload", () => {
   stopCaptureStream();
+});
+
+contextMenu.addEventListener("pointerdown", (event) => {
+  event.stopPropagation();
+});
+contextMenu.addEventListener("click", async (event) => {
+  const button = event.target.closest(".context-menu-item");
+
+  if (!button || button.disabled) {
+    return;
+  }
+
+  const action = contextMenuActions[button.dataset.action];
+  closeContextMenu();
+
+  if (action) {
+    await action();
+  }
 });
 
 async function syncWindowState() {

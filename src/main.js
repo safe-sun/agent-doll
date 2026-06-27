@@ -155,10 +155,6 @@ function createWindow() {
     );
     sendCaptureGeometry(true);
   });
-  mainWindow.webContents.on("context-menu", (event) => {
-    event.preventDefault();
-    createContextMenu().popup({ window: mainWindow });
-  });
 
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
@@ -304,55 +300,6 @@ function updateCollapseAfterDrag() {
   setCollapsed(Boolean(edge), edge);
 }
 
-function createContextMenu() {
-  return Menu.buildFromTemplate([
-    {
-      label: "刷新",
-      click: () =>
-        mainWindow?.webContents.send("codex-usage:refresh", { force: true }),
-    },
-    {
-      label: "置顶",
-      type: "checkbox",
-      checked: alwaysOnTop,
-      click: () => setAlwaysOnTop(!alwaysOnTop),
-    },
-    {
-      label: collapsed ? "展开" : "收起",
-      click: () => setCollapsed(!collapsed),
-    },
-    {
-      label: "泛光",
-      type: "checkbox",
-      checked: glowEnabled,
-      click: () => setGlowEnabled(!glowEnabled),
-    },
-    {
-      label: "呼吸",
-      type: "checkbox",
-      enabled: glowEnabled,
-      checked: glowEnabled && glowBreathing,
-      click: () => setGlowBreathing(!glowBreathing),
-    },
-    { type: "separator" },
-    {
-      label: "Codex 目录",
-      click: async () => {
-        const usage = await readCodexUsage();
-        await shell.openPath(usage.codexHome);
-      },
-    },
-    {
-      label: "重载",
-      click: () => mainWindow?.reload(),
-    },
-    {
-      label: "退出",
-      click: () => app.quit(),
-    },
-  ]);
-}
-
 function setAlwaysOnTop(value) {
   alwaysOnTop = value;
   if (!mainWindow) {
@@ -431,19 +378,29 @@ ipcMain.handle("window:toggle-top", () => {
 
 ipcMain.handle("window:is-top", () => alwaysOnTop);
 
+ipcMain.handle("window:toggle-collapsed", () => {
+  return setCollapsed(!collapsed);
+});
+
+ipcMain.handle("window:toggle-glow", () => {
+  return setGlowEnabled(!glowEnabled);
+});
+
+ipcMain.handle("window:toggle-glow-breathing", () => {
+  return setGlowBreathing(!glowBreathing);
+});
+
 ipcMain.handle("window:open-codex-home", async () => {
   const usage = await readCodexUsage();
   await shell.openPath(usage.codexHome);
 });
 
-ipcMain.handle("window:quit", () => {
-  app.quit();
+ipcMain.handle("window:reload", () => {
+  mainWindow?.reload();
 });
 
-ipcMain.handle("window:show-context-menu", () => {
-  if (mainWindow) {
-    createContextMenu().popup({ window: mainWindow });
-  }
+ipcMain.handle("window:quit", () => {
+  app.quit();
 });
 
 ipcMain.handle("window:drag-start", () => {
