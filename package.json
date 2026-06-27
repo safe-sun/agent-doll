@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "nodemon --watch src --ext js,html,css --exec \"electron .\"",
-    "check": "node scripts/check-usage.js"
+    "check": "node scripts/check-usage.js",
+    "pack:win": "electron-builder --win --x64"
   },
   "keywords": [
     "codex",
@@ -14,8 +15,50 @@
   ],
   "author": "",
   "license": "MIT",
+  "build": {
+    "appId": "com.safe-sun.agent-doll",
+    "productName": "Codex 桌宠",
+    "asar": true,
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "agent-doll-${version}-setup-${arch}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Codex 桌宠"
+    },
+    "portable": {
+      "artifactName": "agent-doll-${version}-portable-${arch}.${ext}"
+    }
+  },
   "devDependencies": {
     "electron": "^31.7.7",
+    "electron-builder": "^24.13.3",
     "nodemon": "^3.1.14"
   }
 }
