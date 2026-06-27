@@ -15,6 +15,9 @@ const CAPTURE_CURSOR_MODE = "never";
 const GLASS_RENDER_FPS = 60;
 const GLASS_RENDER_INTERVAL_MS = 1000 / GLASS_RENDER_FPS;
 const MAX_RENDER_SCALE = 1;
+const METER_CENTER = 16;
+const METER_RADIUS = 12;
+const METER_START_ANGLE = -90;
 const CONTRAST_SAMPLE_SIZE = 10;
 const CONTRAST_UPDATE_INTERVAL_MS = 240;
 const GLASS_RENDER = {
@@ -165,17 +168,48 @@ function updateQuota(window, remainingEl, barEl) {
 function setQuotaProgress(barEl, percent) {
   const clamped = Math.max(0, Math.min(100, Number(percent) || 0));
   const meterEl = barEl.closest(".meter");
-  const progressEl = meterEl?.querySelector(".meter-progress-circle");
-  const progressLength = progressEl?.getTotalLength?.() || 0;
+  const progressEl = meterEl?.querySelector(".meter-progress-arc");
 
   barEl.style.width = `${clamped}%`;
   meterEl?.setAttribute("data-quota-level", quotaLevel(clamped));
-  meterEl?.style.setProperty("--progress-length", `${progressLength}`);
-  meterEl?.style.setProperty(
-    "--progress-offset",
-    `${progressLength * (1 - clamped / 100)}`,
-  );
   meterEl?.style.setProperty("--progress-opacity", clamped > 0 ? "1" : "0");
+  progressEl?.setAttribute("d", meterArcPath(clamped));
+}
+
+function meterArcPath(percent) {
+  if (percent <= 0) {
+    return "";
+  }
+
+  if (percent >= 100) {
+    return [
+      `M ${METER_CENTER} ${METER_CENTER - METER_RADIUS}`,
+      `A ${METER_RADIUS} ${METER_RADIUS} 0 1 1 ${METER_CENTER} ${METER_CENTER + METER_RADIUS}`,
+      `A ${METER_RADIUS} ${METER_RADIUS} 0 1 1 ${METER_CENTER} ${METER_CENTER - METER_RADIUS}`,
+    ].join(" ");
+  }
+
+  const start = pointOnMeter(METER_START_ANGLE);
+  const end = pointOnMeter(METER_START_ANGLE + (360 * percent) / 100);
+  const largeArc = percent > 50 ? 1 : 0;
+
+  return [
+    `M ${start.x} ${start.y}`,
+    `A ${METER_RADIUS} ${METER_RADIUS} 0 ${largeArc} 1 ${end.x} ${end.y}`,
+  ].join(" ");
+}
+
+function pointOnMeter(angle) {
+  const radians = (angle * Math.PI) / 180;
+
+  return {
+    x: formatMeterPoint(METER_CENTER + METER_RADIUS * Math.cos(radians)),
+    y: formatMeterPoint(METER_CENTER + METER_RADIUS * Math.sin(radians)),
+  };
+}
+
+function formatMeterPoint(value) {
+  return Number(value.toFixed(3));
 }
 
 function quotaLevel(percent) {
