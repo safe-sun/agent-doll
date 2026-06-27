@@ -7,6 +7,7 @@ const MAX_SESSION_FILES = 120;
 const READ_TAIL_BYTES = 1024 * 1024;
 const APP_SERVER_TIMEOUT_MS = 8000;
 const USAGE_CACHE_TTL_MS = 75_000;
+const PREFERRED_LIMIT_ID = "codex";
 
 let cachedUsage = null;
 let pendingUsageRead = null;
@@ -36,6 +37,20 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function firstValue(...values) {
+  return values.find((value) => value !== undefined && value !== null);
+}
+
+function clampPercent(value) {
+  const number = toNumber(value);
+
+  if (number === null) {
+    return null;
+  }
+
+  return Math.max(0, Math.min(100, number));
+}
+
 function formatEpochSeconds(epochSeconds) {
   const seconds = toNumber(epochSeconds);
   if (!seconds) {
@@ -50,13 +65,22 @@ function normalizeWindow(window) {
     return null;
   }
 
-  const usedPercent = Math.max(0, Math.min(100, toNumber(window.used_percent) ?? 0));
+  const usedPercent = clampPercent(firstValue(window.used_percent, window.usedPercent));
+  const remainingPercent = clampPercent(
+    firstValue(window.remaining_percent, window.remainingPercent),
+  );
+
+  if (usedPercent === null && remainingPercent === null) {
+    return null;
+  }
+
+  const normalizedRemaining = remainingPercent ?? Math.max(0, 100 - usedPercent);
 
   return {
-    usedPercent,
-    remainingPercent: Math.max(0, 100 - usedPercent),
-    windowMinutes: toNumber(window.window_minutes),
-    resetsAt: formatEpochSeconds(window.resets_at),
+    usedPercent: usedPercent ?? Math.max(0, 100 - normalizedRemaining),
+    remainingPercent: normalizedRemaining,
+    windowMinutes: toNumber(firstValue(window.window_minutes, window.windowDurationMins)),
+    resetsAt: formatEpochSeconds(firstValue(window.resets_at, window.resetsAt)),
   };
 }
 
@@ -65,13 +89,22 @@ function normalizeAppServerWindow(window) {
     return null;
   }
 
-  const usedPercent = Math.max(0, Math.min(100, toNumber(window.usedPercent) ?? 0));
+  const usedPercent = clampPercent(firstValue(window.usedPercent, window.used_percent));
+  const remainingPercent = clampPercent(
+    firstValue(window.remainingPercent, window.remaining_percent),
+  );
+
+  if (usedPercent === null && remainingPercent === null) {
+    return null;
+  }
+
+  const normalizedRemaining = remainingPercent ?? Math.max(0, 100 - usedPercent);
 
   return {
-    usedPercent,
-    remainingPercent: Math.max(0, 100 - usedPercent),
-    windowMinutes: toNumber(window.windowDurationMins),
-    resetsAt: formatEpochSeconds(window.resetsAt),
+    usedPercent: usedPercent ?? Math.max(0, 100 - normalizedRemaining),
+    remainingPercent: normalizedRemaining,
+    windowMinutes: toNumber(firstValue(window.windowDurationMins, window.window_minutes)),
+    resetsAt: formatEpochSeconds(firstValue(window.resetsAt, window.resets_at)),
   };
 }
 
@@ -84,24 +117,25 @@ function normalizeAppServerRateLimit(snapshot) {
     found: true,
     source: "codex-app-server",
     timestamp: new Date().toISOString(),
-    planType: snapshot.planType || null,
-    limitId: snapshot.limitId || null,
-    limitName: snapshot.limitName || null,
+    planType: firstValue(snapshot.planType, snapshot.plan_type) || null,
+    limitId: firstValue(snapshot.limitId, snapshot.limit_id) || null,
+    limitName: firstValue(snapshot.limitName, snapshot.limit_name) || null,
     primary: normalizeAppServerWindow(snapshot.primary),
     secondary: normalizeAppServerWindow(snapshot.secondary),
-    rateLimitReachedType: snapshot.rateLimitReachedType || null,
-    credits: snapshot.credits || null,
+    rateLimitReachedType:
+      firstValue(snapshot.rateLimitReachedType, snapshot.rate_limit_reached_type) || null,
+    credits: firstValue(snapshot.credits, snapshot.creditInfo, snapshot.credit_info) || null,
   };
 }
 
 function pickAppServerRateLimit(result) {
-  const byLimitId = result?.rateLimitsByLimitId;
+  const byLimitId = firstValue(result?.rateLimitsByLimitId, result?.rate_limits_by_limit_id);
 
   if (byLimitId?.codex) {
     return byLimitId.codex;
   }
 
-  return result?.rateLimits || null;
+  return firstValue(result?.rateLimits, result?.rate_limits) || null;
 }
 
 function parseJsonLines(chunk, onMessage) {
@@ -205,6 +239,46 @@ async function findCodexCommandsOnPath() {
   return commands.map((entry) => entry.command);
 }
 
+async function findCodexCommandsInCodexAppBin() {
+  if (process.platform !== "win32") {
+    return [];
+  }
+
+  const localAppData =
+    process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
+  const codexBinRoot = path.join(localAppData, "OpenAI", "Codex", "bin");
+  let entries;
+
+  try {
+    entries = await fs.readdir(codexBinRoot, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const candidates = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const command = path.join(codexBinRoot, entry.name, "codex.exe");
+
+    try {
+      const stat = await fs.stat(command);
+      if (stat.isFile()) {
+        candidates.push({ command, mtimeMs: stat.mtimeMs });
+      }
+    } catch {
+      // 忽略 Codex 更新后残留的失效 bin 目录。
+    }
+  }
+
+  return candidates
+    .sort((a, b) => b.mtimeMs - a.mtimeMs)
+    .map((candidate) => candidate.command);
+}
+
 async function findCodexCommandsInWindowsApps() {
   if (process.platform !== "win32") {
     return [];
@@ -245,8 +319,16 @@ async function resolveCodexCommands() {
     appendUniqueCommand(commands, path.resolve(configured));
   }
 
+  for (const command of await findCodexCommandsInCodexAppBin()) {
+    appendUniqueCommand(commands, command);
+  }
+
   for (const command of await findCodexCommandsOnPath()) {
     appendUniqueCommand(commands, command);
+  }
+
+  if (process.platform === "win32") {
+    appendUniqueCommand(commands, "codex");
   }
 
   for (const command of await findCodexCommandsInWindowsApps()) {
@@ -255,7 +337,10 @@ async function resolveCodexCommands() {
 
   cachedCodexCommands = commands.map((entry) => ({
     command: entry.command,
-    shell: commandNeedsShell(entry.command),
+    shell:
+      process.platform === "win32" && entry.command === "codex"
+        ? true
+        : commandNeedsShell(entry.command),
   }));
   return cachedCodexCommands;
 }
@@ -327,8 +412,8 @@ function readRateLimitsWithCommand(codexCommand) {
       method: "initialize",
       params: {
         clientInfo: {
-          name: "agent-doll",
-          version: "0.1.0",
+          name: "codex-ball",
+          version: "1.0.0",
         },
         capabilities: null,
       },
@@ -438,8 +523,17 @@ async function readFileTail(file) {
   }
 }
 
-function newestRateLimitFromText(text) {
+function isNewerUsage(candidate, current) {
+  const candidateTime = new Date(candidate?.timestamp || 0).getTime();
+  const currentTime = new Date(current?.timestamp || 0).getTime();
+
+  return candidateTime > currentTime;
+}
+
+function newestRateLimitCandidatesFromText(text) {
   const lines = text.split(/\r?\n/).reverse();
+  let fallback = null;
+  let preferred = null;
 
   for (const line of lines) {
     if (!line.includes('"rate_limits"')) {
@@ -450,14 +544,22 @@ function newestRateLimitFromText(text) {
       const parsed = JSON.parse(line);
       const normalized = normalizeUsage(parsed);
       if (normalized) {
-        return normalized;
+        if (normalized.limitId === PREFERRED_LIMIT_ID) {
+          preferred ??= normalized;
+        } else {
+          fallback ??= normalized;
+        }
+
+        if (preferred && fallback) {
+          break;
+        }
       }
     } catch {
       // A tail can start midway through a JSON line. Skip incomplete lines.
     }
   }
 
-  return null;
+  return { fallback, preferred };
 }
 
 async function readLatestRateLimit() {
@@ -472,17 +574,38 @@ async function readLatestRateLimit() {
 
   const sessionsRoot = path.join(codexHome(), "sessions");
   const files = await collectSessionFiles(sessionsRoot);
+  let preferredUsage = null;
+  let fallbackUsage = null;
 
   for (const file of files) {
     const text = await readFileTail(file);
-    const usage = newestRateLimitFromText(text);
+    const candidates = newestRateLimitCandidatesFromText(text);
 
-    if (usage) {
-      return {
+    for (const usage of [candidates.preferred, candidates.fallback]) {
+      if (!usage) {
+        continue;
+      }
+
+      const usageWithSource = {
         ...usage,
         sourceFile: file.path,
       };
+
+      if (usage.limitId === PREFERRED_LIMIT_ID) {
+        if (!preferredUsage || isNewerUsage(usageWithSource, preferredUsage)) {
+          preferredUsage = usageWithSource;
+        }
+        continue;
+      }
+
+      if (!fallbackUsage || isNewerUsage(usageWithSource, fallbackUsage)) {
+        fallbackUsage = usageWithSource;
+      }
     }
+  }
+
+  if (preferredUsage || fallbackUsage) {
+    return preferredUsage || fallbackUsage;
   }
 
   return {
