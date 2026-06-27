@@ -1,14 +1,14 @@
 {
-  "name": "agent-doll",
-  "version": "0.1.0",
-  "description": "Codex 桌宠用量监视器",
+  "name": "codex-ball",
+  "version": "1.0.0",
+  "description": "codex info in glass ball :)",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "nodemon --watch src --ext js,html,css --exec \"electron .\"",
     "check": "node scripts/check-usage.js",
     "pack:win": "electron-builder --win --x64",
-    "pack:mac": "electron-builder --mac --x64 --arm64"
+    "pack:mac": "electron-builder --mac --arm64"
   },
   "keywords": [
     "codex",
