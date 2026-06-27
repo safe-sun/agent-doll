@@ -165,10 +165,16 @@ function updateQuota(window, remainingEl, barEl) {
 function setQuotaProgress(barEl, percent) {
   const clamped = Math.max(0, Math.min(100, Number(percent) || 0));
   const meterEl = barEl.closest(".meter");
+  const progressEl = meterEl?.querySelector(".meter-progress-circle");
+  const progressLength = progressEl?.getTotalLength?.() || 0;
 
   barEl.style.width = `${clamped}%`;
   meterEl?.setAttribute("data-quota-level", quotaLevel(clamped));
-  meterEl?.style.setProperty("--progress-offset", `${100 - clamped}`);
+  meterEl?.style.setProperty("--progress-length", `${progressLength}`);
+  meterEl?.style.setProperty(
+    "--progress-offset",
+    `${progressLength * (1 - clamped / 100)}`,
+  );
   meterEl?.style.setProperty("--progress-opacity", clamped > 0 ? "1" : "0");
 }
 
