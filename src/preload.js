@@ -7,6 +7,15 @@ contextBridge.exposeInMainWorld("codexPet", {
     ipcRenderer.on("codex-usage:refresh", listener);
     return () => ipcRenderer.removeListener("codex-usage:refresh", listener);
   },
+  refreshUsageWindow: () => ipcRenderer.invoke("codex-usage:refresh-window"),
+  showContextMenu: (point) => ipcRenderer.invoke("context-menu:show", point),
+  closeContextMenu: () => ipcRenderer.invoke("context-menu:close"),
+  getContextMenuState: () => ipcRenderer.invoke("context-menu:state"),
+  onContextMenuOpen: (callback) => {
+    const listener = (_event, state) => callback(state);
+    ipcRenderer.on("context-menu:open", listener);
+    return () => ipcRenderer.removeListener("context-menu:open", listener);
+  },
   toggleAlwaysOnTop: () => ipcRenderer.invoke("window:toggle-top"),
   isAlwaysOnTop: () => ipcRenderer.invoke("window:is-top"),
   toggleCollapsed: () => ipcRenderer.invoke("window:toggle-collapsed"),

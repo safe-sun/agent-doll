@@ -12,6 +12,8 @@ const {
 const { readCodexUsage } = require("./usage-reader");
 
 let mainWindow;
+let contextMenuWindow;
+let contextMenuReady = null;
 let alwaysOnTop = true;
 let collapsed = false;
 let glowEnabled = false;
@@ -26,6 +28,10 @@ const EXPANDED_SIZE = {
 const COLLAPSED_SIZE = {
   width: 84 + WINDOW_GLOW_MARGIN * 2,
   height: 84 + WINDOW_GLOW_MARGIN * 2,
+};
+const CONTEXT_MENU_SIZE = {
+  width: 136,
+  height: 208,
 };
 const EDGE_THRESHOLD = 18;
 const CAPTURE_GEOMETRY_INTERVAL_MS = 80;
@@ -164,8 +170,97 @@ function createWindow() {
 
   mainWindow.on("closed", () => {
     stopDrag();
+    if (contextMenuWindow && !contextMenuWindow.isDestroyed()) {
+      contextMenuWindow.destroy();
+    }
     mainWindow = null;
   });
+}
+
+function createContextMenuWindow() {
+  if (contextMenuWindow && !contextMenuWindow.isDestroyed()) {
+    return contextMenuWindow;
+  }
+
+  contextMenuWindow = new BrowserWindow({
+    width: CONTEXT_MENU_SIZE.width,
+    height: CONTEXT_MENU_SIZE.height,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    show: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    backgroundColor: "#00000000",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  contextMenuWindow.setMenuBarVisibility(false);
+  contextMenuWindow.setAlwaysOnTop(true, "pop-up-menu");
+  contextMenuWindow.setContentProtection(true);
+  contextMenuWindow.on("blur", () => hideContextMenuWindow());
+  contextMenuWindow.on("closed", () => {
+    contextMenuWindow = null;
+    contextMenuReady = null;
+  });
+
+  contextMenuReady = contextMenuWindow.loadFile(
+    path.join(__dirname, "menu", "index.html"),
+  );
+
+  return contextMenuWindow;
+}
+
+function getContextMenuState() {
+  return {
+    alwaysOnTop,
+    collapsed,
+    glowBreathing,
+    glowEnabled,
+  };
+}
+
+async function showContextMenuWindow(point = {}) {
+  const menuWindow = createContextMenuWindow();
+  const cursor = screen.getCursorScreenPoint();
+  const x = Number.isFinite(point.x) ? Math.round(point.x) : cursor.x;
+  const y = Number.isFinite(point.y) ? Math.round(point.y) : cursor.y;
+
+  menuWindow.setBounds(
+    {
+      x,
+      y,
+      width: CONTEXT_MENU_SIZE.width,
+      height: CONTEXT_MENU_SIZE.height,
+    },
+    false,
+  );
+
+  try {
+    await contextMenuReady;
+  } catch (error) {
+    console.error(error);
+    return;
+  }
+
+  if (!contextMenuWindow || contextMenuWindow.isDestroyed()) {
+    return;
+  }
+
+  contextMenuWindow.show();
+  contextMenuWindow.focus();
+  contextMenuWindow.webContents.send("context-menu:open", getContextMenuState());
+}
+
+function hideContextMenuWindow() {
+  if (contextMenuWindow && !contextMenuWindow.isDestroyed()) {
+    contextMenuWindow.hide();
+  }
 }
 
 function stopDrag() {
@@ -355,7 +450,7 @@ if (!gotSingleInstanceLock) {
     createWindow();
 
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) {
+      if (!mainWindow || mainWindow.isDestroyed()) {
         createWindow();
       }
     });
@@ -372,11 +467,25 @@ ipcMain.handle("codex-usage:read", async (_event, options) =>
   readCodexUsage(options),
 );
 
+ipcMain.handle("codex-usage:refresh-window", () => {
+  mainWindow?.webContents.send("codex-usage:refresh", { force: true });
+});
+
 ipcMain.handle("window:toggle-top", () => {
   return setAlwaysOnTop(!alwaysOnTop);
 });
 
 ipcMain.handle("window:is-top", () => alwaysOnTop);
+
+ipcMain.handle("context-menu:show", (_event, point) => {
+  return showContextMenuWindow(point);
+});
+
+ipcMain.handle("context-menu:close", () => {
+  hideContextMenuWindow();
+});
+
+ipcMain.handle("context-menu:state", () => getContextMenuState());
 
 ipcMain.handle("window:toggle-collapsed", () => {
   return setCollapsed(!collapsed);
