@@ -359,7 +359,6 @@ body.glow-enabled.glow-breathing .glass-card::before {
   width: 100%;
   height: 100%;
   overflow: visible;
-  transform: rotate(-90deg);
   shape-rendering: geometricPrecision;
 }
 

@@ -184,18 +184,18 @@ function meterArcPath(percent) {
   if (percent >= 100) {
     return [
       `M ${METER_CENTER} ${METER_CENTER - METER_RADIUS}`,
-      `A ${METER_RADIUS} ${METER_RADIUS} 0 1 0 ${METER_CENTER} ${METER_CENTER + METER_RADIUS}`,
-      `A ${METER_RADIUS} ${METER_RADIUS} 0 1 0 ${METER_CENTER} ${METER_CENTER - METER_RADIUS}`,
+      `A ${METER_RADIUS} ${METER_RADIUS} 0 1 1 ${METER_CENTER} ${METER_CENTER + METER_RADIUS}`,
+      `A ${METER_RADIUS} ${METER_RADIUS} 0 1 1 ${METER_CENTER} ${METER_CENTER - METER_RADIUS}`,
     ].join(" ");
   }
 
   const start = pointOnMeter(METER_START_ANGLE);
-  const end = pointOnMeter(METER_START_ANGLE - (360 * percent) / 100);
+  const end = pointOnMeter(METER_START_ANGLE + (360 * percent) / 100);
   const largeArc = percent > 50 ? 1 : 0;
 
   return [
     `M ${start.x} ${start.y}`,
-    `A ${METER_RADIUS} ${METER_RADIUS} 0 ${largeArc} 0 ${end.x} ${end.y}`,
+    `A ${METER_RADIUS} ${METER_RADIUS} 0 ${largeArc} 1 ${end.x} ${end.y}`,
   ].join(" ");
 }
 
