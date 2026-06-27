@@ -17,8 +17,8 @@
   "author": "",
   "license": "MIT",
   "build": {
-    "appId": "com.safe-sun.agent-doll",
-    "productName": "Codex 桌宠",
+    "appId": "com.safe-sun.codex-ball",
+    "productName": "codex-ball",
     "asar": true,
     "electronDist": "node_modules/electron/dist",
     "directories": {
@@ -45,16 +45,16 @@
       ]
     },
     "nsis": {
-      "artifactName": "agent-doll-${version}-setup-${arch}.${ext}",
+      "artifactName": "codex-ball-${version}-setup-${arch}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Codex 桌宠"
+      "shortcutName": "codex-ball"
     },
     "portable": {
-      "artifactName": "agent-doll-${version}-portable-${arch}.${ext}"
+      "artifactName": "codex-ball-${version}-portable-${arch}.${ext}"
     }
   },
   "devDependencies": {
