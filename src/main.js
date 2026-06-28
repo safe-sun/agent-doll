@@ -33,7 +33,7 @@ const CONTEXT_MENU_SIZE = {
   width: 136,
   height: 208,
 };
-const EDGE_THRESHOLD = 18;
+const EDGE_THRESHOLD = 10;
 const CAPTURE_GEOMETRY_INTERVAL_MS = 80;
 let lastCaptureGeometrySentAt = 0;
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
